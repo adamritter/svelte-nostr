@@ -1,0 +1,329 @@
+{
+  "0 debug pnpm:scope": {
+    "selected": 1
+  },
+  "1 debug pnpm:package-manifest": {
+    "initial": {
+      "name": "svelte-nostr",
+      "version": "0.0.1",
+      "scripts": {
+        "dev": "vite dev",
+        "build": "vite build",
+        "preview": "vite preview",
+        "check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
+        "check:watch": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json --watch",
+        "test:unit": "vitest",
+        "lint": "prettier --plugin-search-dir . --check . && eslint .",
+        "format": "prettier --plugin-search-dir . --write ."
+      },
+      "devDependencies": {
+        "@fontsource/fira-mono": "^4.5.10",
+        "@neoconfetti/svelte": "^1.0.0",
+        "@sveltejs/adapter-auto": "^1.0.0",
+        "@sveltejs/kit": "^1.0.0",
+        "@types/cookie": "^0.5.1",
+        "eslint": "^8.28.0",
+        "eslint-config-prettier": "^8.5.0",
+        "eslint-plugin-svelte3": "^4.0.0",
+        "prettier": "^2.8.0",
+        "prettier-plugin-svelte": "^2.8.1",
+        "svelte": "^3.54.0",
+        "svelte-check": "^2.9.2",
+        "typescript": "^4.9.3",
+        "vite": "^4.0.0",
+        "vitest": "^0.25.3"
+      },
+      "type": "module"
+    },
+    "prefix": "/Users/adamritter/Documents/GitHub/svelte-nostr"
+  },
+  "2 debug pnpm:context": {
+    "currentLockfileExists": false,
+    "storeDir": "/Users/adamritter/.pnpm-store/v3",
+    "virtualStoreDir": "/Users/adamritter/Documents/GitHub/svelte-nostr/node_modules/.pnpm"
+  },
+  "3 debug pnpm:stage": {
+    "prefix": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "stage": "resolution_started"
+  },
+  "4 debug pnpm:_dependency_resolved": {
+    "resolution": "registry.npmjs.org/eslint-plugin-svelte3/4.0.0",
+    "wanted": {
+      "dependentId": ".",
+      "name": "eslint-plugin-svelte3",
+      "rawSpec": "^4.0.0"
+    }
+  },
+  "5 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/eslint-plugin-svelte3/4.0.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "resolved"
+  },
+  "6 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/eslint-plugin-svelte3/4.0.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "found_in_store"
+  },
+  "7 debug pnpm:_dependency_resolved": {
+    "resolution": "registry.npmjs.org/@neoconfetti/svelte/1.0.0",
+    "wanted": {
+      "dependentId": ".",
+      "name": "@neoconfetti/svelte",
+      "rawSpec": "^1.0.0"
+    }
+  },
+  "8 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/@neoconfetti/svelte/1.0.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "resolved"
+  },
+  "9 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/@neoconfetti/svelte/1.0.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "found_in_store"
+  },
+  "10 debug pnpm:_dependency_resolved": {
+    "resolution": "registry.npmjs.org/@types/cookie/0.5.1",
+    "wanted": {
+      "dependentId": ".",
+      "name": "@types/cookie",
+      "rawSpec": "^0.5.1"
+    }
+  },
+  "11 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/@types/cookie/0.5.1",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "resolved"
+  },
+  "12 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/@types/cookie/0.5.1",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "found_in_store"
+  },
+  "13 debug pnpm:_dependency_resolved": {
+    "resolution": "registry.npmjs.org/prettier-plugin-svelte/2.9.0",
+    "wanted": {
+      "dependentId": ".",
+      "name": "prettier-plugin-svelte",
+      "rawSpec": "^2.8.1"
+    }
+  },
+  "14 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/prettier-plugin-svelte/2.9.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "resolved"
+  },
+  "15 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/prettier-plugin-svelte/2.9.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "found_in_store"
+  },
+  "16 debug pnpm:_dependency_resolved": {
+    "resolution": "registry.npmjs.org/@fontsource/fira-mono/4.5.10",
+    "wanted": {
+      "dependentId": ".",
+      "name": "@fontsource/fira-mono",
+      "rawSpec": "^4.5.10"
+    }
+  },
+  "17 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/@fontsource/fira-mono/4.5.10",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "resolved"
+  },
+  "18 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/@fontsource/fira-mono/4.5.10",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "found_in_store"
+  },
+  "19 debug pnpm:_dependency_resolved": {
+    "resolution": "registry.npmjs.org/@sveltejs/adapter-auto/1.0.0",
+    "wanted": {
+      "dependentId": ".",
+      "name": "@sveltejs/adapter-auto",
+      "rawSpec": "^1.0.0"
+    }
+  },
+  "20 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/@sveltejs/adapter-auto/1.0.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "resolved"
+  },
+  "21 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/@sveltejs/adapter-auto/1.0.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "found_in_store"
+  },
+  "22 debug pnpm:_dependency_resolved": {
+    "resolution": "registry.npmjs.org/vitest/0.25.8",
+    "wanted": {
+      "dependentId": ".",
+      "name": "vitest",
+      "rawSpec": "^0.25.3"
+    }
+  },
+  "23 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/vitest/0.25.8",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "resolved"
+  },
+  "24 debug pnpm:_dependency_resolved": {
+    "resolution": "registry.npmjs.org/svelte/3.55.0",
+    "wanted": {
+      "dependentId": ".",
+      "name": "svelte",
+      "rawSpec": "^3.54.0"
+    }
+  },
+  "25 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/svelte/3.55.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "resolved"
+  },
+  "26 debug pnpm:_dependency_resolved": {
+    "resolution": "registry.npmjs.org/prettier/2.8.1",
+    "wanted": {
+      "dependentId": ".",
+      "name": "prettier",
+      "rawSpec": "^2.8.0"
+    }
+  },
+  "27 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/prettier/2.8.1",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "resolved"
+  },
+  "28 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/prettier/2.8.1",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "found_in_store"
+  },
+  "29 debug pnpm:fetching-progress": {
+    "attempt": 1,
+    "packageId": "registry.npmjs.org/vitest/0.25.8",
+    "size": 344014,
+    "status": "started"
+  },
+  "30 debug pnpm:_dependency_resolved": {
+    "resolution": "registry.npmjs.org/svelte-check/2.10.3",
+    "wanted": {
+      "dependentId": ".",
+      "name": "svelte-check",
+      "rawSpec": "^2.9.2"
+    }
+  },
+  "31 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/svelte-check/2.10.3",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "resolved"
+  },
+  "32 debug pnpm:fetching-progress": {
+    "attempt": 1,
+    "packageId": "registry.npmjs.org/svelte/3.55.0",
+    "size": 1776077,
+    "status": "started"
+  },
+  "33 debug pnpm:fetching-progress": {
+    "attempt": 1,
+    "packageId": "registry.npmjs.org/svelte-check/2.10.3",
+    "size": 707860,
+    "status": "started"
+  },
+  "34 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/vitest/0.25.8",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "fetched"
+  },
+  "35 debug pnpm:_dependency_resolved": {
+    "resolution": "registry.npmjs.org/eslint-config-prettier/8.5.0",
+    "wanted": {
+      "dependentId": ".",
+      "name": "eslint-config-prettier",
+      "rawSpec": "^8.5.0"
+    }
+  },
+  "36 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/eslint-config-prettier/8.5.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "resolved"
+  },
+  "37 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/eslint-config-prettier/8.5.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "found_in_store"
+  },
+  "38 debug pnpm:_dependency_resolved": {
+    "resolution": "registry.npmjs.org/vite/4.0.3",
+    "wanted": {
+      "dependentId": ".",
+      "name": "vite",
+      "rawSpec": "^4.0.0"
+    }
+  },
+  "39 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/vite/4.0.3",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "resolved"
+  },
+  "40 debug pnpm:fetching-progress": {
+    "attempt": 1,
+    "packageId": "registry.npmjs.org/vite/4.0.3",
+    "size": 730884,
+    "status": "started"
+  },
+  "41 debug pnpm:_dependency_resolved": {
+    "resolution": "registry.npmjs.org/eslint/8.30.0",
+    "wanted": {
+      "dependentId": ".",
+      "name": "eslint",
+      "rawSpec": "^8.28.0"
+    }
+  },
+  "42 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/eslint/8.30.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "resolved"
+  },
+  "43 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/eslint/8.30.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "found_in_store"
+  },
+  "44 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/svelte/3.55.0",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "fetched"
+  },
+  "45 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/svelte-check/2.10.3",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "fetched"
+  },
+  "46 debug pnpm:progress": {
+    "packageId": "registry.npmjs.org/vite/4.0.3",
+    "requester": "/Users/adamritter/Documents/GitHub/svelte-nostr",
+    "status": "fetched"
+  },
+  "47 warn pnpm:install-check": {
+    "message": "Unsupported engine for registry.npmjs.org/@sveltejs/kit/1.0.1: wanted: {\"node\":\"^16.14 || >=18\"} (current: {\"node\":\"v17.1.0\",\"pnpm\":\"6.32.4\"})",
+    "prefix": "/Users/adamritter/Documents/GitHub/svelte-nostr"
+  },
+  "48 error pnpm": {
+    "code": "ERR_PNPM_UNSUPPORTED_ENGINE",
+    "packageId": "registry.npmjs.org/@sveltejs/kit/1.0.1",
+    "wanted": {
+      "node": "^16.14 || >=18"
+    },
+    "current": {
+      "node": "v17.1.0",
+      "pnpm": "6.32.4"
+    },
+    "pkgsStack": [],
+    "err": {
+      "name": "pnpm",
+      "message": "Unsupported engine for registry.npmjs.org/@sveltejs/kit/1.0.1: wanted: {\"node\":\"^16.14 || >=18\"} (current: {\"node\":\"v17.1.0\",\"pnpm\":\"6.32.4\"})",
+      "code": "ERR_PNPM_UNSUPPORTED_ENGINE",
+      "stack": "pnpm: Unsupported engine for registry.npmjs.org/@sveltejs/kit/1.0.1: wanted: {\"node\":\"^16.14 || >=18\"} (current: {\"node\":\"v17.1.0\",\"pnpm\":\"6.32.4\"})\n    at checkEngine (/usr/local/lib/node_modules/pnpm/dist/pnpm.cjs:41290:16)\n    at checkPackage (/usr/local/lib/node_modules/pnpm/dist/pnpm.cjs:43386:104)\n    at packageIsInstallable (/usr/local/lib/node_modules/pnpm/dist/pnpm.cjs:43356:20)\n    at resolveAndFetch (/usr/local/lib/node_modules/pnpm/dist/pnpm.cjs:74519:117)\n    at runMicrotasks (<anonymous>)\n    at processTicksAndRejections (node:internal/process/task_queues:96:5)\n    at async resolveDependency (/usr/local/lib/node_modules/pnpm/dist/pnpm.cjs:116038:23)\n    at async resolveDependenciesOfDependency (/usr/local/lib/node_modules/pnpm/dist/pnpm.cjs:115873:39)\n    at async Promise.all (index 3)\n    at async resolveDependencies (/usr/local/lib/node_modules/pnpm/dist/pnpm.cjs:115840:29)"
+    }
+  }
+}
