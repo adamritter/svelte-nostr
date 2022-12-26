@@ -26,17 +26,21 @@ function splitWhereCaluseBy(filter, key) {
     }
 }
 
+function splitWhereClause(filter) {
+    return splitWhereCaluseBy(filter, "authors") ||
+        splitWhereCaluseBy(filter, "ids") ||
+        splitWhereCaluseBy(filter, "#p") ||
+        splitWhereCaluseBy(filter, "#e") ||
+        splitWhereCaluseBy(filter, null);
+}
+
 // Exported only for debugging
 export function getEventsByFilter(filter) {
     filter={...filter}
     delete filter.limit
     let timeLabel="getEventsByFilter "+JSON.stringify(filter);
     console.time(timeLabel);
-    let filtered=splitWhereCaluseBy(filter, "authors") ||
-        splitWhereCaluseBy(filter, "ids") ||
-        splitWhereCaluseBy(filter, "#p") ||
-        splitWhereCaluseBy(filter, "#e") ||
-        splitWhereCaluseBy(filter, null);
+    let filtered=splitWhereClause(filter);
     return filtered.toArray()
             .then(events => {
                     let flat_events=events.map(event => (event.event || event.events || [])).flat()
@@ -230,6 +234,46 @@ function sendOnOpen(data) {
 const getTimeSec=()=>Math.floor(Date.now()/1000);
 const matchImpossible=(filter)=>(filter.ids && filter.ids.length == 0) || (filter.authors && filter.authors.length == 0);
 
+
+function requestDataFromServersIfNecessary(subscription, events) {
+    let filter=subscription.filter
+    if(events.length) {
+        subscription.events=events;
+        subscription.callback(events)
+    }
+    let needSend=true;
+    if(subscription.options.onlyOne) {
+        if(filter.ids) {
+            filter.ids=filter.ids.filter((id)=>!events.find((event)=>event.id==id))
+            if(!filter.ids.length) {
+                needSend=false;
+            }
+        } else if(filter.authors) {
+            filter.authors=filter.authors.filter((author)=>!events.find((event)=>event.pubkey==author))
+            if(!filter.authors.length) {
+                needSend=false;
+            }
+        } else {
+            throw new Error("onlyOne option not supported for this filter", filter)
+        }
+    }
+    if (neverSend) {
+        needSend=false;
+    }
+    let label=subscription.label;
+    let subText=subscription.subText;
+    if(needSend) {
+        subscription.query_info.req_sent_at=getTimeSec();
+        subscription.query_info.received_events=0;
+        console.log("sending subscription REQ", subText, filter, ", original label", label)
+        sendOnOpen(JSON.stringify(["REQ", subText, filter]));
+    } else {
+        console.timeLog(label, 'no need to send subscription');
+        console.timeEnd(label);
+    }
+
+}
+
 // put queried at, max timestamp, min timestamp (min timestamp is 0 if there was no limit reached) in database
 // Big: support for multiple relays (logging queries can help)
 // message verification: should it use nostr-tools library?
@@ -252,48 +296,17 @@ export function subscribeAndCacheResults(filter, callback, options={}) {
         console.log("empty filter", filter)
         return ()=>{}
     }
-    let filter2={...filter};
     let subText="sub"+subscriptionId
     subscriptionId=subscriptionId+1
-    subscriptions[subText]={events: [], callback, filter, changed: false, options, label, newEvents: [], query_info: {db_queried_at: getTimeSec()}}
+    subscriptions[subText]={events: [], callback, filter, changed: false, options,
+            label, subText, newEvents: [], query_info: {db_queried_at: getTimeSec()}}
     
     getEventsByFilter(filter).then((events)=>{
             let num_events=events.length;
             console.timeLog(label, `got ${num_events} indexedDB events for filter`);
             let subscription=subscriptions[subText]
             if(subscription) {
-                    if(events.length) {
-                        subscription.events=events;
-                        subscription.callback(events)
-                    }
-                    let needSend=true;
-                    if(options.onlyOne) {
-                        if(filter2.ids) {
-                            filter2.ids=filter2.ids.filter((id)=>!events.find((event)=>event.id==id))
-                            if(!filter2.ids.length) {
-                                needSend=false;
-                            }
-                        } else if(filter2.authors) {
-                            filter2.authors=filter2.authors.filter((author)=>!events.find((event)=>event.pubkey==author))
-                            if(!filter2.authors.length) {
-                                needSend=false;
-                            }
-                        } else {
-                            throw new Error("onlyOne option not supported for this filter", filter2)
-                        }
-                    }
-                    if (neverSend) {
-                        needSend=false;
-                    }
-                    if(needSend) {
-                        subscription.query_info.req_sent_at=getTimeSec();
-                        subscription.query_info.received_events=0;
-                        console.log("sending subscription REQ", subText, filter2, ", original label", label)
-                        sendOnOpen(JSON.stringify(["REQ", subText, filter2]));
-                    } else {
-                        console.timeLog(label, 'no need to send subscription');
-                        console.timeEnd(label);
-                    }
+                requestDataFromServersIfNecessary(subscription, events)
             }
     })
     return ()=>{
