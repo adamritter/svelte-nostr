@@ -40,9 +40,8 @@ export function getEventsByFilter(filter) {
     return filtered.toArray()
             .then(events => {
                     let flat_events=events.map(event => (event.event || event.events || [])).flat()
-                    // let query_infos=events.filter(event => event.query_info).map(event => event.query_info)
-                    // let last_query_info=sortBy(query_infos, "queried_at")[0]
-                    console.timeLog(timeLabel, "got "+events.length+" events, returning "+flat_events.length+" events");
+                    let query_infos=events.filter(event => event.query_info)
+                    console.timeLog(timeLabel, "got "+events.length+" events, returning "+flat_events.length+" events, query_infos: ", query_infos);
                     console.timeEnd(timeLabel)
                     return flat_events;
             });
@@ -83,45 +82,48 @@ function addToPut(toPut, filter, event) {
     }
 }
 
-// Implement batching
-function putEvents(filter, events, batchSize=30, query_info=null) {
-    filter={...filter}
-    delete filter.limit
+function splitAndAddToPut(toPut, filter, event) {
+    addToPutBy(toPut, filter, "authors", event, "pubkey", false) ||
+     addToPutBy(toPut, filter, "ids", event, "ids", false) ||
+     addToPutBy(toPut, filter, "#p", event, "p", true) ||
+     addToPutBy(toPut, filter, "#e", event, "e", true) ||
+     addToPutBy(toPut, filter, null, event);
+}
 
-    let toPut = new Map();
-    
-    for (let event of events) {
-        addToPutBy(toPut, filter, "authors", event, "pubkey", false) ||
-         addToPutBy(toPut, filter, "ids", event, "ids", false) ||
-         addToPutBy(toPut, filter, "#p", event, "p", true) ||
-         addToPutBy(toPut, filter, "#e", event, "e", true) ||
-         addToPutBy(toPut, filter, null, event);
-    }
-    let toPutArray=[];
-    // Implement batching
-    for(let [filter, events] of toPut) {
-        events=events.sort((a,b) => a.created_at - b.created_at);
-        for(let i=0; i<events.length; i+=batchSize) {
-            if(batchSize > 1 || events.length==1) {
-                toPutArray.push({
-                    filter: filter,
-                    events: events.slice(i, i+batchSize)
-                })
-            } else {
-                toPutArray.push({
-                    filter: filter,
-                    event: events[i]
-                })
-            }
-        }
-        if(query_info) {
+function addBatchedQueries(toPutArray, filter, events, batchSize, query_info) {
+    events=events.sort((a,b) => a.created_at - b.created_at);
+    for(let i=0; i<events.length; i+=batchSize) {
+        if(batchSize > 1 || events.length==1) {
             toPutArray.push({
                 filter: filter,
-                query_info
+                events: events.slice(i, i+batchSize)
+            })
+        } else {
+            toPutArray.push({
+                filter: filter,
+                event: events[i]
             })
         }
     }
+    if(query_info) {
+        toPutArray.push({
+            filter: filter,
+            query_info
+        })
+    }
+}
 
+function putEvents(filter, events, batchSize=30, query_info=null) {
+    filter={...filter}
+    delete filter.limit
+    let toPut = new Map();
+    for (let event of events) {
+        splitAndAddToPut(toPut, filter, event)
+    }
+    let toPutArray=[];
+    for(let [filter, events] of toPut) {
+        addBatchedQueries(toPutArray, filter, events, batchSize, query_info);
+    }
     return db.events.bulkPut(toPutArray)
 }
 
@@ -145,60 +147,69 @@ function containsId(events, id) {
     return false;
 }
 
+function eoseReceived(subText) {
+    let subscription=subscriptions[subText]
+    if(subscription) {
+        subscription.query_info.eose_received_at=getTimeSec()
+        subscription.query_info.total_events=subscription.events.length
+        subscription.query_info.new_events=subscription.newEvents.length
 
-// Listen for messages
+        console.timeLog(subscription.label, "EOSE with "+subscription.events.length+
+            " events, from that "+subscription.newEvents.length+" new");
+        console.timeEnd(subscription.label);
+        if(subscription.newEvents.length > 0) {
+            console.log("Writing query info", subscription.query_info)
+            putEvents(subscription.filter, subscription.newEvents, undefined, subscription.query_info)
+            subscription.newEvents=[]
+        }
+        if(subscription.changed) {
+            subscription.callback(subscription.events);
+        }
+        subscription.eose=true;
+    }
+    
+    if(!subscription || subscription.autoClose) {
+        socket.send(JSON.stringify(["CLOSE", subText]))
+        delete subscriptions[subText]
+    }
+}
+
+function newEventReceived(subscription, event) {
+    subscription.changed=true;
+    subscription.events.push(event)
+    
+    if (subscription.eose) {
+        putEvents(subscription.filter, [event])
+        console.time("callback")
+        subscription.callback(subscription.events);
+        console.timeEnd("callback")
+    } else {
+        if(!putAtEnd) {
+            putEvents(subscription.filter, [event])
+        } else {
+            subscription.newEvents.push(event)
+        }
+    }
+}
+
+function eventReceived(subText, event) {
+    let subscription=subscriptions[subText]
+    if(subscription) {
+        subscription.query_info.received_events++;
+        if(!containsId(subscription.events, event.id)) {
+            newEventReceived(subscription, event)
+        }
+    }
+}
+
 socket.addEventListener('message', function( message ) {
     console.log("got message", message)
         var event = JSON.parse( message.data );
         // showEvent(event);
         if(event[0]=="EVENT") {
-                let subText=event[1]
-                let subscription=subscriptions[subText]
-                if(subscription) {
-                        if(!containsId(subscription.events, event[2].id)) {
-                                subscription.changed=true;
-                                subscription.events.push(event[2])
-                                
-                                if (subscription.eose) {
-                                    putEvents(subscription.filter, [event[2]])
-                                    
-                                    console.time("callback")
-                                    subscription.callback(subscription.events);
-                                    console.timeEnd("callback")
-                                } else {
-                                    if(!putAtEnd) {
-                                        putEvents(subscription.filter, [event[2]])
-                                    } else {
-                                        subscription.newEvents.push(event[2])
-                                    }
-                                }
-                        }
-                       
-                }
-        }
-        // 1 relay???
-        if (event[0]=="EOSE") {
-                let subText=event[1]
-                let subscription=subscriptions[subText]
-                if(subscription) {
-                    console.timeLog(subscription.label, "EOSE with "+subscription.events.length+
-                        " events, from that "+subscription.newEvents.length+" new");
-                    console.timeEnd(subscription.label);
-                    if(subscription.newEvents.length > 0) {
-                        putEvents(subscription.filter, subscription.newEvents)
-                        subscription.newEvents=[]
-                    }
-                }
-                if(!subscription || subscription.autoClose) {
-                        socket.send(JSON.stringify(["CLOSE", subText]))
-                        delete subscriptions[subText]
-                }
-                if(subscription && subscription.changed) {
-                    subscription.callback(subscription.events);
-                }
-                if (subscription) {
-                    subscription.eose=true;
-                }
+            eventReceived(event[1], event[2])
+        } else if (event[0]=="EOSE") {
+            eoseReceived(event[1])
         }
 });
 let send_on_open=[]
@@ -216,7 +227,7 @@ function sendOnOpen(data) {
                 send_on_open.push(data)
         }
 }
-
+const getTimeSec=()=>Math.floor(Date.now()/1000);
 const matchImpossible=(filter)=>(filter.ids && filter.ids.length == 0) || (filter.authors && filter.authors.length == 0);
 
 // put queried at, max timestamp, min timestamp (min timestamp is 0 if there was no limit reached) in database
@@ -244,7 +255,7 @@ export function subscribeAndCacheResults(filter, callback, options={}) {
     let filter2={...filter};
     let subText="sub"+subscriptionId
     subscriptionId=subscriptionId+1
-    subscriptions[subText]={events: [], callback, filter, changed: false, options, label, newEvents: []}
+    subscriptions[subText]={events: [], callback, filter, changed: false, options, label, newEvents: [], query_info: {db_queried_at: getTimeSec()}}
     
     getEventsByFilter(filter).then((events)=>{
             let num_events=events.length;
@@ -275,6 +286,8 @@ export function subscribeAndCacheResults(filter, callback, options={}) {
                         needSend=false;
                     }
                     if(needSend) {
+                        subscription.query_info.req_sent_at=getTimeSec();
+                        subscription.query_info.received_events=0;
                         console.log("sending subscription REQ", subText, filter2, ", original label", label)
                         sendOnOpen(JSON.stringify(["REQ", subText, filter2]));
                     } else {
