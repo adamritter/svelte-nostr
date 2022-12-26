@@ -1,4 +1,4 @@
-- Connect public key API
+- Connect public key API (probably need profile page where it's all easy)
 - log queries and look at fresh data
 - use relay api
 - use multiple relays possibly, see how other clients do it

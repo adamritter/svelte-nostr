@@ -1,8 +1,9 @@
 // Definition for stores that can be used in the client
-import { subscribeAndCacheResults } from './nostr-store'
+import {subscribeAndCacheResults} from './nostr-store'
 import {unique, mapBy} from './collection-helpers'
-import {readable, derived} from 'svelte/store'
+import {readable, derived, writable} from 'svelte/store'
 import {Kind} from '$lib/nostr-helpers'
+import {getPublicKey, nip19} from 'nostr-tools'
 
 export function subscribeAndCacheResultsStore(filter, options) 
 {
@@ -47,3 +48,45 @@ export let contactsStore=(published) => derived(published, (events) => {
 export let filterByKind=(kind) => (events) => events.filter(author => author.kind === kind)
 export let eventsFromFollowedStore=(contactsStore, limit=500)=>derivedSubscribeStore(
     contactsStore, (contacts)=>{return {authors: contacts, limit}})
+
+export function localStorageJSONStore(key, defaultValue=null) {
+	const { subscribe, set } = writable(JSON.parse(localStorage.getItem(key)) || defaultValue);
+    return {
+        subscribe,
+        set: (value) => {
+            localStorage.setItem(key, JSON.stringify(value))
+            set(value)
+        }
+    }
+}
+
+
+export function localStorageStore(key, defaultValue=null) {
+	const { subscribe, set } = writable(localStorage.getItem(key) || defaultValue);
+    return {
+        subscribe,
+        set: (value) => {
+            localStorage.setItem(key, value)
+            set(value)
+        }
+    }
+}
+
+
+// Profile states: "extension" | "pubkey_extesion" | "pubkey" | "private_key"
+export let profileStateLocalStore=()=>localStorageStore("nostr_profile_state")
+
+
+export async function readPublicKey() {
+	let privKey = localStorage.getItem("private_key")
+    if(!privKey) {
+        return await window.nostr.getPublicKey();
+    }
+
+	if(privKey && privKey.slice(0, 4)=="nsec") {
+		let {data} = nip19.decode(privKey)
+		privKey=data;
+	}
+
+	return getPublicKey(privKey, true);
+}

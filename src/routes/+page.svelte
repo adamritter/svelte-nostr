@@ -8,14 +8,9 @@
 	import PublicNotes from './PublicNotes.svelte';
 	import {publishedStore, receivedStore, publishedProfilesStore, publishedProfilesByPubKeyStore,
 		contactsStore, eventsFromFollowedStore, subscribeAndCacheResultsStore} from '$lib/svelte-nostr-stores'
+	export let data;
 
-	let privKey = localStorage.getItem("private_key")
-	if(privKey.slice(0, 4)=="nsec") {
-		let {type, data} = nip19.decode(privKey)
-		privKey=data;
-	}
-
-	let pubKey = getPublicKey( privKey, true );
+	let pubKey = data.pubkey;
 	console.log("pub key:", pubKey)
 	let published=publishedStore(pubKey)
 	let received=receivedStore(pubKey)
@@ -53,7 +48,9 @@
 		<span style="flex-basis: 500px; display: block"><Contacts contacts={$contacts} profilesByPubKey={$publishedProfilesByPubKey} /></span>
 		<span style:display={(page=="posts") ? "block" : "none"}><PublicNotes only_posts=true events={$published.concat($received).concat($eventsFromFollowed)} profilesByPubKey={$publishedProfilesByPubKey} /></span>
 		<span style:display={(page=="posts_replies") ? "block" : "none"}><PublicNotes events={$published.concat($received).concat($eventsFromFollowed)} profilesByPubKey={$publishedProfilesByPubKey} /></span>
-		<span style:display={(page=="dms") ? "block" : "none"}><DMs events={$published.concat($received)} privKey={privKey} pubKey={pubKey} profilesByPubKey={$publishedProfilesByPubKey} /></span>
+		{#if data.private_key} <!-- TODO: use window.nostr encode / decode instead if the private key doesn't exist -->
+		<span style:display={(page=="dms") ? "block" : "none"}><DMs events={$published.concat($received)} privKey={data.private_key} pubKey={pubKey} profilesByPubKey={$publishedProfilesByPubKey} /></span>
+		{/if}
 	</span>
 	
 	<!-- <h1>Kinds</h1><p>{kinds}</p> -->

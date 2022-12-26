@@ -39,10 +39,12 @@ export function getEventsByFilter(filter) {
         splitWhereCaluseBy(filter, null);
     return filtered.toArray()
             .then(events => {
-                    let r=events.map(event => (event.event || event.events || [])).flat()
-                    console.timeLog(timeLabel, "got "+events.length+" events, returning "+r.length+" events");
+                    let flat_events=events.map(event => (event.event || event.events || [])).flat()
+                    // let query_infos=events.filter(event => event.query_info).map(event => event.query_info)
+                    // let last_query_info=sortBy(query_infos, "queried_at")[0]
+                    console.timeLog(timeLabel, "got "+events.length+" events, returning "+flat_events.length+" events");
                     console.timeEnd(timeLabel)
-                    return r;
+                    return flat_events;
             });
 }
 
@@ -82,7 +84,7 @@ function addToPut(toPut, filter, event) {
 }
 
 // Implement batching
-function putEvents(filter, events, batchSize=30) {
+function putEvents(filter, events, batchSize=30, query_info=null) {
     filter={...filter}
     delete filter.limit
 
@@ -111,6 +113,12 @@ function putEvents(filter, events, batchSize=30) {
                     event: events[i]
                 })
             }
+        }
+        if(query_info) {
+            toPutArray.push({
+                filter: filter,
+                query_info
+            })
         }
     }
 
