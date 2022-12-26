@@ -47,7 +47,7 @@ export function getEventsByFilter(filter) {
                     let query_infos=events.filter(event => event.query_info)
                     console.timeLog(timeLabel, "got "+events.length+" events, returning "+flat_events.length+" events, query_infos: ", query_infos);
                     console.timeEnd(timeLabel)
-                    return flat_events;
+                    return {events: flat_events, query_infos};
             });
 }
 
@@ -234,44 +234,44 @@ function sendOnOpen(data) {
 const getTimeSec=()=>Math.floor(Date.now()/1000);
 const matchImpossible=(filter)=>(filter.ids && filter.ids.length == 0) || (filter.authors && filter.authors.length == 0);
 
-
-function requestDataFromServersIfNecessary(subscription, events) {
-    let filter=subscription.filter
-    if(events.length) {
-        subscription.events=events;
-        subscription.callback(events)
-    }
-    let needSend=true;
-    if(subscription.options.onlyOne) {
-        if(filter.ids) {
-            filter.ids=filter.ids.filter((id)=>!events.find((event)=>event.id==id))
-            if(!filter.ids.length) {
-                needSend=false;
-            }
-        } else if(filter.authors) {
-            filter.authors=filter.authors.filter((author)=>!events.find((event)=>event.pubkey==author))
-            if(!filter.authors.length) {
-                needSend=false;
-            }
-        } else {
-            throw new Error("onlyOne option not supported for this filter", filter)
+function filterOnlyOne(events, filter) {
+    filter={...filter}
+    if(filter.ids) {
+        filter.ids=filter.ids.filter((id)=>!events.find((event)=>event.id==id))
+        if(!filter.ids.length) {
+            return null;
         }
+    } else if(filter.authors) {
+        filter.authors=filter.authors.filter((author)=>!events.find((event)=>event.pubkey==author))
+        if(!filter.authors.length) {
+            return null;
+        }
+    } else {
+        throw new Error("onlyOne option not supported for this filter", filter)
     }
-    if (neverSend) {
-        needSend=false;
+    return filter
+}
+
+function requestDataFromServersIfNecessary(subscription, events, query_infos) {
+    let needSend=!neverSend;
+    if(subscription.options.onlyOne) {
+        subscription.filter=filterOnlyOne(events, subscription.filter)
+        if(!subscription.filter) {
+            needSend=false;
+        }
     }
     let label=subscription.label;
     let subText=subscription.subText;
+    console.log("got query_infos", query_infos)
     if(needSend) {
         subscription.query_info.req_sent_at=getTimeSec();
         subscription.query_info.received_events=0;
-        console.log("sending subscription REQ", subText, filter, ", original label", label)
-        sendOnOpen(JSON.stringify(["REQ", subText, filter]));
+        console.log("sending subscription REQ", subText, subscription.filter, ", original label", label)
+        sendOnOpen(JSON.stringify(["REQ", subText, subscription.filter]));
     } else {
         console.timeLog(label, 'no need to send subscription');
         console.timeEnd(label);
     }
-
 }
 
 // put queried at, max timestamp, min timestamp (min timestamp is 0 if there was no limit reached) in database
@@ -301,12 +301,16 @@ export function subscribeAndCacheResults(filter, callback, options={}) {
     subscriptions[subText]={events: [], callback, filter, changed: false, options,
             label, subText, newEvents: [], query_info: {db_queried_at: getTimeSec()}}
     
-    getEventsByFilter(filter).then((events)=>{
+    getEventsByFilter(filter).then(({events, query_infos})=>{
             let num_events=events.length;
             console.timeLog(label, `got ${num_events} indexedDB events for filter`);
             let subscription=subscriptions[subText]
             if(subscription) {
-                requestDataFromServersIfNecessary(subscription, events)
+                if(events.length) {
+                    subscription.events=events;
+                    subscription.callback(events)
+                }
+                requestDataFromServersIfNecessary(subscription, events, query_infos)
             }
     })
     return ()=>{
