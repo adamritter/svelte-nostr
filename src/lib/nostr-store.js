@@ -1,5 +1,7 @@
 const putAtEnd=true;  // Wait for EOSE to put new events in the store
-const neverSend=true;  // Turn off data requests to the relay
+const neverSend=false;  // Turn off data requests to the relay
+const requestOnlyNewData=true;
+const minTimeoutForSubscriptionRenewalSeconds=60*3;  // Wait at least this seconds before renewing a subscription
 
 import Dexie from 'dexie';
 import { normalizeRelayURL } from './nostr-helpers';
@@ -15,13 +17,11 @@ export let db=getDB();
 function splitWhereCaluseBy(filter, key) {
     if (key) {
         if(filter[key] && filter[key].length > 1) {
-            filter[key].map(p => console.log("example", JSON.stringify({...filter, [key]: [p]})))
             return db.events.where("filter").anyOf(filter[key].map(p => JSON.stringify({...filter, [key]: [p]})));
         } else {
             return null;
         }
     } else {
-        console.log("exact search", JSON.stringify(filter))
         return db.events.where("filter").equals(JSON.stringify(filter));
     }
 }
@@ -119,7 +119,11 @@ function addBatchedQueries(toPutArray, filter, events, batchSize, query_info) {
 
 function putEvents(filter, events, batchSize=30, query_info=null) {
     filter={...filter}
+    // let since=filter.since;
+    // let until=filter.until;
     delete filter.limit
+    delete filter.since;
+    delete filter.until;
     let toPut = new Map();
     for (let event of events) {
         splitAndAddToPut(toPut, filter, event)
@@ -161,11 +165,12 @@ function eoseReceived(subText) {
         console.timeLog(subscription.label, "EOSE with "+subscription.events.length+
             " events, from that "+subscription.newEvents.length+" new");
         console.timeEnd(subscription.label);
-        if(subscription.newEvents.length > 0) {
+        // Write query info even if there are no new events.
+        // if(subscription.newEvents.length > 0) {
             console.log("Writing query info", subscription.query_info)
             putEvents(subscription.filter, subscription.newEvents, undefined, subscription.query_info)
             subscription.newEvents=[]
-        }
+        // }
         if(subscription.changed) {
             subscription.callback(subscription.events);
         }
@@ -252,26 +257,43 @@ function filterOnlyOne(events, filter) {
     return filter
 }
 
-function requestDataFromServersIfNecessary(subscription, events, query_infos) {
-    let needSend=!neverSend;
+function getFilterToRequest(subscription, events, query_infos) {
+    let label=subscription.label;
+    if (neverSend) {
+        console.timeLog(label, 'no need to send subscription because neverSend is set');
+        console.timeEnd(label);
+        return;
+    }
+    let filter={...subscription.filter}
     if(subscription.options.onlyOne) {
-        subscription.filter=filterOnlyOne(events, subscription.filter)
-        if(!subscription.filter) {
-            needSend=false;
+        filter=filterOnlyOne(events, filter)
+        if(!filter) {
+            console.timeLog(label, 'no need to send subscription because all events are already in the database');
+            console.timeEnd(label);
+            return;
         }
     }
-    let label=subscription.label;
-    let subText=subscription.subText;
-    console.log("got query_infos", query_infos)
-    if(needSend) {
-        subscription.query_info.req_sent_at=getTimeSec();
-        subscription.query_info.received_events=0;
-        console.log("sending subscription REQ", subText, subscription.filter, ", original label", label)
-        sendOnOpen(JSON.stringify(["REQ", subText, subscription.filter]));
-    } else {
-        console.timeLog(label, 'no need to send subscription');
-        console.timeEnd(label);
+    subscription.query_info.req_sent_at=getTimeSec();
+    subscription.query_info.received_events=0;
+    // This is the point where we can optimize the requests by setting query time limits.
+    // Also if there are different last query times for different subfilters, we need to send multiple requests.
+    // Those multiple requests should probably still shared the same event stream, just like having multiple relays.
+    // We need to differentiate between client subscriptions and server subscriptions.
+    // One client subscription can have multiple server subscriptions.
+    let last_req_sent_at=query_infos.map((query_info)=>query_info.query_info.req_sent_at).sort().pop()
+    if(last_req_sent_at!=undefined) {
+        let timePassed=getTimeSec()-last_req_sent_at;
+        if (timePassed < minTimeoutForSubscriptionRenewalSeconds) {
+            console.timeLog(label, 'not enough time passed, not sending subscription');
+            console.timeEnd(label);
+            return;
+        }
+        if(requestOnlyNewData) {
+            filter.since=last_req_sent_at-60*6;
+        }
     }
+    return {filter, last_req_sent_at};
+    
 }
 
 // put queried at, max timestamp, min timestamp (min timestamp is 0 if there was no limit reached) in database
@@ -291,7 +313,6 @@ export function subscribeAndCacheResults(filter, callback, options={}) {
     }
     let label=JSON.stringify(filter);
     console.time(label);
-    console.log("filter", filter)
     if(matchImpossible(filter)) {
         console.log("empty filter", filter)
         return ()=>{}
@@ -310,7 +331,13 @@ export function subscribeAndCacheResults(filter, callback, options={}) {
                     subscription.events=events;
                     subscription.callback(events)
                 }
-                requestDataFromServersIfNecessary(subscription, events, query_infos)
+                let {filter, last_req_sent_at}=getFilterToRequest(subscription, events, query_infos)
+                if(filter) {
+                    subscription.query_info.last_req_sent_at=last_req_sent_at;
+                    subscription.filter=filter;
+                    console.log("sending subscription REQ", subText, subscription.filter, ", original label", subscription.label)
+                    sendOnOpen(JSON.stringify(["REQ", subText, subscription.filter]));
+                }
             }
     })
     return ()=>{

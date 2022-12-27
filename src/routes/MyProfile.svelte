@@ -1,3 +1,3 @@
 <script>
-    let state=localStorage.getItem("nostr_profile_state")
+    let state=localStorageStore("nostr_profile_state")
 </script>

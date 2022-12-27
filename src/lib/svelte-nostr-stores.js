@@ -3,7 +3,6 @@ import {subscribeAndCacheResults} from './nostr-store'
 import {unique, mapBy} from './collection-helpers'
 import {readable, derived, writable} from 'svelte/store'
 import {Kind} from '$lib/nostr-helpers'
-import {getPublicKey, nip19} from 'nostr-tools'
 
 export function subscribeAndCacheResultsStore(filter, options) 
 {
@@ -76,17 +75,3 @@ export function localStorageStore(key, defaultValue=null) {
 // Profile states: "extension" | "pubkey_extesion" | "pubkey" | "private_key"
 export let profileStateLocalStore=()=>localStorageStore("nostr_profile_state")
 
-
-export async function readPublicKey() {
-	let privKey = localStorage.getItem("private_key")
-    if(!privKey) {
-        return await window.nostr.getPublicKey();
-    }
-
-	if(privKey && privKey.slice(0, 4)=="nsec") {
-		let {data} = nip19.decode(privKey)
-		privKey=data;
-	}
-
-	return getPublicKey(privKey, true);
-}

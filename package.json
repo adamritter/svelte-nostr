@@ -30,9 +30,11 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@sveltejs/adapter-static": "^1.0.0",
 		"dexie": "^3.2.2",
 		"javascript-time-ago": "^2.5.9",
 		"nostr-tools": "^1.0.0",
-		"pnpm": "^7.19.0"
+		"pnpm": "^7.19.0",
+		"static-server": "^2.2.1"
 	}
 }
