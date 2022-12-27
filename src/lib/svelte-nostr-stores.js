@@ -41,7 +41,6 @@ export let publishedProfilesByPubKeyStore=(published_profiles)=>
     derived(published_profiles, (profiles) => mapBy(profiles, item=>item.pubkey))
 export let contactsStore=(published) => derived(published, (events) => {
     let r= (events.findLast(author => author.kind === Kind.Contacts)?.tags.map(tag => tag[1]) || [])
-    console.log("contactsStore result: ", r)
     return r;
 })
 export let filterByKind=(kind) => (events) => events.filter(author => author.kind === kind)

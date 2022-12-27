@@ -38,15 +38,11 @@ function splitWhereClause(filter) {
 export function getEventsByFilter(filter) {
     filter={...filter}
     delete filter.limit
-    let timeLabel="getEventsByFilter "+JSON.stringify(filter);
-    console.time(timeLabel);
     let filtered=splitWhereClause(filter);
     return filtered.toArray()
             .then(events => {
                     let flat_events=events.map(event => (event.event || event.events || [])).flat()
                     let query_infos=events.filter(event => event.query_info)
-                    console.timeLog(timeLabel, "got "+events.length+" events, returning "+flat_events.length+" events, query_infos: ", query_infos);
-                    console.timeEnd(timeLabel)
                     return {events: flat_events, query_infos};
             });
 }
@@ -314,7 +310,6 @@ export function subscribeAndCacheResults(filter, callback, options={}) {
     let label=JSON.stringify(filter);
     console.time(label);
     if(matchImpossible(filter)) {
-        console.log("empty filter", filter)
         return ()=>{}
     }
     let subText="sub"+subscriptionId
@@ -324,17 +319,17 @@ export function subscribeAndCacheResults(filter, callback, options={}) {
     
     getEventsByFilter(filter).then(({events, query_infos})=>{
             let num_events=events.length;
-            console.timeLog(label, `got ${num_events} indexedDB events for filter`);
+            console.timeLog(label, `got ${num_events} indexedDB events for filter, query_infos`, query_infos);
             let subscription=subscriptions[subText]
             if(subscription) {
                 if(events.length) {
                     subscription.events=events;
                     subscription.callback(events)
                 }
-                let {filter, last_req_sent_at}=getFilterToRequest(subscription, events, query_infos)
-                if(filter) {
-                    subscription.query_info.last_req_sent_at=last_req_sent_at;
-                    subscription.filter=filter;
+                let filter_result=getFilterToRequest(subscription, events, query_infos)
+                if(filter_result.filter) {
+                    subscription.query_info.last_req_sent_at=filter_result.last_req_sent_at;
+                    subscription.filter=filter_result.filter;
                     console.log("sending subscription REQ", subText, subscription.filter, ", original label", subscription.label)
                     sendOnOpen(JSON.stringify(["REQ", subText, subscription.filter]));
                 }
