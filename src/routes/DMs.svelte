@@ -1,7 +1,7 @@
 <script>
     import {groupBy} from "$lib/collection-helpers";
-    import {decryptDM} from "$lib/nostr-helpers";
-    import {sortByCreatedAt} from "$lib/nostr-helpers";
+    import {decryptDM} from "$lib/helpers";
+    import {sortByCreatedAt} from "$lib/helpers";
     import Profile from "./Profile.svelte";
     export let events;
     export let privKey;

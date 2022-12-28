@@ -4,7 +4,7 @@ const requestOnlyNewData=true;
 const minTimeoutForSubscriptionRenewalSeconds=60*3;  // Wait at least this seconds before renewing a subscription
 
 import Dexie from 'dexie';
-import { normalizeRelayURL } from './nostr-helpers';
+import { normalizeRelayURL } from './helpers';
 function getDB() {
     const db = new Dexie("nostr_events", {chromeTransactionDurability: "relaxed"});
     db.version(1).stores({
@@ -46,88 +46,10 @@ export function getEventsByFilter(filter) {
                     return {events: flat_events, query_infos};
             });
 }
-
-function addToPutBy(toPut, filter, key, event, eventKey, isTag) {
-    if(key) {
-        if(filter[key] && filter[key].length > 1) {
-            for(let value of filter[key]) {
-                if(isTag) {
-                    for(let tag of event.tags) {
-                        if(tag[0] == eventKey) {
-                            if(tag[1] === value) {
-                                addToPut(toPut, {...filter, [key]: [value]}, event);
-                                break;
-                            }
-                        }
-                    }
-                } else if(event[eventKey] === value) {
-                    addToPut(toPut, {...filter, [key]: [value]}, event);
-                    break;
-                }
-            }
-            return true;
-        }
-        return false;
-    } else {
-        addToPut(toPut, filter, event);
-    }
-}
-
-function addToPut(toPut, filter, event) {
-    let jsonFilter=JSON.stringify(filter)
-    if(toPut.has(jsonFilter)) {
-        toPut.get(jsonFilter).push(event);
-    } else {
-        toPut.set(jsonFilter, [event]);
-    }
-}
-
-function splitAndAddToPut(toPut, filter, event) {
-    addToPutBy(toPut, filter, "authors", event, "pubkey", false) ||
-     addToPutBy(toPut, filter, "ids", event, "ids", false) ||
-     addToPutBy(toPut, filter, "#p", event, "p", true) ||
-     addToPutBy(toPut, filter, "#e", event, "e", true) ||
-     addToPutBy(toPut, filter, null, event);
-}
-
-function addBatchedQueries(toPutArray, filter, events, batchSize, query_info) {
-    events=events.sort((a,b) => a.created_at - b.created_at);
-    for(let i=0; i<events.length; i+=batchSize) {
-        if(batchSize > 1 || events.length==1) {
-            toPutArray.push({
-                filter: filter,
-                events: events.slice(i, i+batchSize)
-            })
-        } else {
-            toPutArray.push({
-                filter: filter,
-                event: events[i]
-            })
-        }
-    }
-    if(query_info) {
-        toPutArray.push({
-            filter: filter,
-            query_info
-        })
-    }
-}
+import { getEventsToPut } from './db-events-to-put';
 
 function putEvents(filter, events, batchSize=30, query_info=null) {
-    filter={...filter}
-    // let since=filter.since;
-    // let until=filter.until;
-    delete filter.limit
-    delete filter.since;
-    delete filter.until;
-    let toPut = new Map();
-    for (let event of events) {
-        splitAndAddToPut(toPut, filter, event)
-    }
-    let toPutArray=[];
-    for(let [filter, events] of toPut) {
-        addBatchedQueries(toPutArray, filter, events, batchSize, query_info);
-    }
+    let toPutArray=getEventsToPut(filter, events, batchSize, query_info);
     return db.events.bulkPut(toPutArray)
 }
 
@@ -269,8 +191,6 @@ function getFilterToRequest(subscription, events, query_infos) {
             return;
         }
     }
-    subscription.query_info.req_sent_at=getTimeSec();
-    subscription.query_info.received_events=0;
     // This is the point where we can optimize the requests by setting query time limits.
     // Also if there are different last query times for different subfilters, we need to send multiple requests.
     // Those multiple requests should probably still shared the same event stream, just like having multiple relays.
@@ -279,6 +199,7 @@ function getFilterToRequest(subscription, events, query_infos) {
     let last_req_sent_at=query_infos.map((query_info)=>query_info.query_info.req_sent_at).sort().pop()
     if(last_req_sent_at!=undefined) {
         let timePassed=getTimeSec()-last_req_sent_at;
+    console.log("last_req_sent_at", last_req_sent_at, "timePassed sec", timePassed)
         if (timePassed < minTimeoutForSubscriptionRenewalSeconds) {
             console.timeLog(label, 'not enough time passed, not sending subscription');
             console.timeEnd(label);
@@ -292,17 +213,18 @@ function getFilterToRequest(subscription, events, query_infos) {
     
 }
 
-// put queried at, max timestamp, min timestamp (min timestamp is 0 if there was no limit reached) in database
-// Big: support for multiple relays (logging queries can help)
-// message verification: should it use nostr-tools library?
+/**
+ put queried at, max timestamp, min timestamp (min timestamp is 0 if there was no limit reached) in database
+ Big: support for multiple relays (logging queries can help)
+ message verification: should it use nostr-tools library?
 
-// Returns unsubscribe function, calls back with array of events.
-// It may call back multiple times (first from cached results, then updated results)
-// It stores results in indexedDB and returns with cached results first if there is match.
-// options:
-//  onlyOne: return only one result
-//  autoClose: close subscription after first result
-
+ Returns unsubscribe function, calls back with array of events.
+ It may call back multiple times (first from cached results, then updated results)
+ It stores results in indexedDB and returns with cached results first if there is match.
+ options:
+  onlyOne: return only one result
+  autoClose: close subscription after first result
+ */
 export function subscribeAndCacheResults(filter, callback, options={}) {
     if (filter.ids) {
         options.onlyOne=true;
@@ -327,10 +249,13 @@ export function subscribeAndCacheResults(filter, callback, options={}) {
                     subscription.callback(events)
                 }
                 let filter_result=getFilterToRequest(subscription, events, query_infos)
-                if(filter_result.filter) {
+                if(filter_result) {
                     subscription.query_info.last_req_sent_at=filter_result.last_req_sent_at;
                     subscription.filter=filter_result.filter;
-                    console.log("sending subscription REQ", subText, subscription.filter, ", original label", subscription.label)
+                    subscription.query_info.req_sent_at=getTimeSec();
+                    subscription.query_info.received_events=0;
+                    console.log("sending subscription REQ", subText, subscription.filter, ", original label", subscription.label,
+                        ", req_sent_at", subscription.query_info.req_sent_at)
                     sendOnOpen(JSON.stringify(["REQ", subText, subscription.filter]));
                 }
             }
@@ -342,4 +267,3 @@ export function subscribeAndCacheResults(filter, callback, options={}) {
             }
     }
 }
-

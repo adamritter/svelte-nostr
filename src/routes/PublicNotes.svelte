@@ -1,10 +1,11 @@
 <script>
+	import { embedMedia } from './../lib/embed-media.js';
     import Profile from "./Profile.svelte";
     import Photo from "./Photo.svelte";
-	import { Kind, sortByCreatedAt } from "$lib/nostr-helpers";
+	import { sortByCreatedAt } from "$lib/helpers";
     import TimeAgo from 'javascript-time-ago'
     import en from 'javascript-time-ago/locale/en'
-
+    import {Kind} from 'nostr-tools'
     TimeAgo.addLocale(en)
     const timeAgo = new TimeAgo('en-US')
 
@@ -13,9 +14,12 @@
     export let only_posts=false;
     
     function only_post_filter(event) {
-        return event.kind === Kind.PublicNote && (only_posts ? (event.tags.every(tag => tag[0] !== "e")) : true);
+        return event.kind === Kind.Text && (only_posts ? (event.tags.every(tag => tag[0] !== "e")) : true);
     }
     $: publicNotes = sortByCreatedAt(events).filter(only_post_filter);
+    $: document.publicNotes = publicNotes;
+    $: document.events=events;
+    
 </script>
 {#if only_posts}
 <h1>Posts</h1>
@@ -30,7 +34,7 @@
         <span style="border-bottom: 1px solid #eee">
                 <Profile data={profilesByPubKey[publicNote.pubkey]} pubkey={publicNote.pubkey} />
                 &nbsp;{timeAgo.format(publicNote.created_at*1000, 'twitter')}<br>
-            {publicNote.content} 
+            {@html embedMedia(publicNote.content)}
             {#each publicNote.tags as tag}
             {#if tag[0] == "t"}
                 <a on:click={()=>0}> #{tag[1]} </a>

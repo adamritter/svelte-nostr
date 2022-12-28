@@ -1,8 +1,8 @@
 // Definition for stores that can be used in the client
-import {subscribeAndCacheResults} from './nostr-store'
+import {subscribeAndCacheResults} from './subscription'
 import {unique, mapBy} from './collection-helpers'
 import {readable, derived, writable} from 'svelte/store'
-import {Kind} from '$lib/nostr-helpers'
+import {Kind} from 'nostr-tools'
 
 export function subscribeAndCacheResultsStore(filter, options) 
 {

@@ -59,15 +59,6 @@ export async function showEvent(event: any, pubKey:string, privKey:string) {
     }
 }
 
-export enum Kind {
-    Profile = 0,
-    PublicNote = 1,
-    Contacts = 3,
-    DirectMessage = 4,
-    Reaction = 7
-}
-
-
 export function sortByCreatedAt(events:Array<any>) {
     return [...events].sort((a:any,b:any)=>(b.created_at - a.created_at))
 }

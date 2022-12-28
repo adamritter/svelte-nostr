@@ -1,8 +1,6 @@
 <script>
-	import {getEventsByFilter, db} from '$lib/nostr-store'
-	import {getPublicKey, nip19} from 'nostr-tools'
+	import {getEventsByFilter, db} from '$lib/subscription'
 	import Profile from './Profile.svelte'
-	import {Kind} from '$lib/nostr-helpers'
 	import DMs from './DMs.svelte'
 	import Contacts from './Contacts.svelte';
 	import PublicNotes from './PublicNotes.svelte';
@@ -26,6 +24,7 @@
 	document.subscribeAndCacheResultsStore=subscribeAndCacheResultsStore
 	document.getEventsByFilter=getEventsByFilter
 	document.db=db;
+	$: document.received=$received
 </script>
 
 <svelte:head>
