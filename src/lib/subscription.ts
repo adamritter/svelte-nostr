@@ -5,19 +5,34 @@ const minTimeoutForSubscriptionRenewalSeconds=60*3;  // Wait at least this secon
 
 import Dexie from 'dexie';
 import { normalizeRelayURL } from './helpers';
-function getDB() {
-    const db = new Dexie("nostr_events", {chromeTransactionDurability: "relaxed"});
-    db.version(1).stores({
-            events: "++,filter"
-    });
-    return db;
-}
-export let db=getDB();
+import { getEventsToPut } from './db-events-to-put';
+import type { Event, Filter, Sub } from 'nostr-tools';
+import type { IEvent, QueryInfo } from './db-ievent';
 
-function splitWhereCaluseBy(filter, key) {
+
+export class EventsDB extends Dexie {
+    events!: Dexie.Table<IEvent>;
+    
+    constructor() {  
+      super("nostr_events", {chromeTransactionDurability: "relaxed"});
+      
+      this.version(1).stores({
+        events: "++,filter"
+});
+    }
+  }
+  
+
+  
+export let db=new EventsDB();
+
+function splitWhereCaluseBy(filter:Filter, key:"authors"|"ids"|"#p"|"#e"|null) : Dexie.Collection<IEvent, number> | null {
     if (key) {
+        // @ts-ignore
         if(filter[key] && filter[key].length > 1) {
-            return db.events.where("filter").anyOf(filter[key].map(p => JSON.stringify({...filter, [key]: [p]})));
+            return db.events.where("filter").anyOf(
+                // @ts-ignore
+                filter[key].map(p => JSON.stringify({...filter, [key]: [p]})));
         } else {
             return null;
         }
@@ -26,35 +41,57 @@ function splitWhereCaluseBy(filter, key) {
     }
 }
 
-function splitWhereClause(filter) {
-    return splitWhereCaluseBy(filter, "authors") ||
+function splitWhereClause(filter: Filter) : Dexie.Collection<IEvent, number> {
+    let r = splitWhereCaluseBy(filter, "authors") ||
         splitWhereCaluseBy(filter, "ids") ||
         splitWhereCaluseBy(filter, "#p") ||
         splitWhereCaluseBy(filter, "#e") ||
         splitWhereCaluseBy(filter, null);
+    if (!r) {
+        throw new Error("splitWhereClause bug")
+    }
+    return r;
 }
 
 // Exported only for debugging
-export function getEventsByFilter(filter) {
+export function getEventsByFilter(filter: Filter): Promise<{events: Event[], query_infos: (IEvent&{query_info:QueryInfo})[] }> {
     filter={...filter}
     delete filter.limit
     let filtered=splitWhereClause(filter);
     return filtered.toArray()
             .then(events => {
-                    let flat_events=events.map(event => (event.event || event.events || [])).flat()
-                    let query_infos=events.filter(event => event.query_info)
+                    let flat_events=events.map(event => (event.events ||event.event || [])).flat()
+                    // @ts-ignore
+                    let query_infos: (IEvent&{query_info:QueryInfo})[]=events.filter(event => event.query_info)
                     return {events: flat_events, query_infos};
             });
 }
-import { getEventsToPut } from './db-events-to-put';
 
-function putEvents(filter, events, batchSize=30, query_info=null) {
+function putEvents(filter: Filter, events: Event[], batchSize:number=30, query_info:QueryInfo|null=null) {
     let toPutArray=getEventsToPut(filter, events, batchSize, query_info);
     return db.events.bulkPut(toPutArray)
 }
 
 
-let subscriptions=new Map();
+type Options={
+    onlyOne?: boolean,
+}
+
+type Subscription={
+    events: Event[],
+    callback:any,
+    filter:Filter,
+    changed: boolean,
+    options:Options,
+    label:string,
+    subText:string,
+    newEvents: Event[],
+    query_info: QueryInfo,
+    eose?: boolean,
+    autoClose?: boolean,
+}
+
+let subscriptions:Map<string,Subscription>=new Map();
 let subscriptionId=0;
 
 // Registry: https://nostr-registry.netlify.app/
@@ -64,7 +101,7 @@ relay = "wss://nostr.fmt.wiz.biz"
 relay = normalizeRelayURL( relay );
 export let socket = new WebSocket( relay );
 
-function containsId(events, id) {
+function containsId(events:Event[], id:string) {
     for(let event of events) {
         if(event.id == id) {
             return true;
@@ -73,8 +110,8 @@ function containsId(events, id) {
     return false;
 }
 
-function eoseReceived(subText) {
-    let subscription=subscriptions[subText]
+function eoseReceived(subText:string) {
+    let subscription=subscriptions.get(subText)
     if(subscription) {
         subscription.query_info.eose_received_at=getTimeSec()
         subscription.query_info.total_events=subscription.events.length
@@ -97,11 +134,11 @@ function eoseReceived(subText) {
     
     if(!subscription || subscription.autoClose) {
         socket.send(JSON.stringify(["CLOSE", subText]))
-        delete subscriptions[subText]
+        subscriptions.delete(subText)
     }
 }
 
-function newEventReceived(subscription, event) {
+function newEventReceived(subscription:Subscription, event:Event) {
     subscription.changed=true;
     subscription.events.push(event)
     
@@ -119,8 +156,8 @@ function newEventReceived(subscription, event) {
     }
 }
 
-function eventReceived(subText, event) {
-    let subscription=subscriptions[subText]
+function eventReceived(subText:string, event:Event & {id:string}) {
+    let subscription=subscriptions.get(subText)
     if(subscription) {
         subscription.query_info.received_events++;
         if(!containsId(subscription.events, event.id)) {
@@ -139,7 +176,7 @@ socket.addEventListener('message', function( message ) {
             eoseReceived(event[1])
         }
 });
-let send_on_open=[]
+let send_on_open:string[]=[]
 socket.addEventListener('open', function() {
         for(let i=0; i<send_on_open.length; i++) {
                 socket.send(send_on_open[i])
@@ -147,7 +184,7 @@ socket.addEventListener('open', function() {
         send_on_open.length=0
 });
 
-function sendOnOpen(data) {
+function sendOnOpen(data:string) {
         if(socket.readyState==1) {
                 socket.send(data)
         } else {
@@ -155,9 +192,9 @@ function sendOnOpen(data) {
         }
 }
 const getTimeSec=()=>Math.floor(Date.now()/1000);
-const matchImpossible=(filter)=>(filter.ids && filter.ids.length == 0) || (filter.authors && filter.authors.length == 0);
+const matchImpossible=(filter:Filter)=>(filter.ids && filter.ids.length == 0) || (filter.authors && filter.authors.length == 0);
 
-function filterOnlyOne(events, filter) {
+function filterOnlyOne(events:Event[], filter:Filter) {
     filter={...filter}
     if(filter.ids) {
         filter.ids=filter.ids.filter((id)=>!events.find((event)=>event.id==id))
@@ -170,12 +207,12 @@ function filterOnlyOne(events, filter) {
             return null;
         }
     } else {
-        throw new Error("onlyOne option not supported for this filter", filter)
+        throw new Error("onlyOne option not supported for this filter" + JSON.stringify(filter))
     }
     return filter
 }
 
-function getFilterToRequest(subscription, events, query_infos) {
+function getFilterToRequest(subscription: Subscription, events:Event[], query_infos:(IEvent&{query_info:QueryInfo})[]) {
     let label=subscription.label;
     if (neverSend) {
         console.timeLog(label, 'no need to send subscription because neverSend is set');
@@ -184,12 +221,13 @@ function getFilterToRequest(subscription, events, query_infos) {
     }
     let filter={...subscription.filter}
     if(subscription.options.onlyOne) {
-        filter=filterOnlyOne(events, filter)
-        if(!filter) {
+        let filterOptional=filterOnlyOne(events, filter)
+        if(!filterOptional) {
             console.timeLog(label, 'no need to send subscription because all events are already in the database');
             console.timeEnd(label);
             return;
         }
+        filter=filterOptional
     }
     // This is the point where we can optimize the requests by setting query time limits.
     // Also if there are different last query times for different subfilters, we need to send multiple requests.
@@ -225,7 +263,7 @@ function getFilterToRequest(subscription, events, query_infos) {
   onlyOne: return only one result
   autoClose: close subscription after first result
  */
-export function subscribeAndCacheResults(filter, callback, options={}) {
+export function subscribeAndCacheResults(filter: Filter, callback: ()=>any, options:Options={}) {
     if (filter.ids) {
         options.onlyOne=true;
     }
@@ -236,13 +274,13 @@ export function subscribeAndCacheResults(filter, callback, options={}) {
     }
     let subText="sub"+subscriptionId
     subscriptionId=subscriptionId+1
-    subscriptions[subText]={events: [], callback, filter, changed: false, options,
-            label, subText, newEvents: [], query_info: {db_queried_at: getTimeSec()}}
+    subscriptions.set(subText, {events: [], callback, filter, changed: false, options,
+            label, subText, newEvents: [], query_info: {db_queried_at: getTimeSec(), received_events: 0}})
     
     getEventsByFilter(filter).then(({events, query_infos})=>{
             let num_events=events.length;
             console.timeLog(label, `got ${num_events} indexedDB events for filter, query_infos`, query_infos);
-            let subscription=subscriptions[subText]
+            let subscription=subscriptions.get(subText)
             if(subscription) {
                 if(events.length) {
                     subscription.events=events;
@@ -261,8 +299,8 @@ export function subscribeAndCacheResults(filter, callback, options={}) {
             }
     })
     return ()=>{
-            if(subscriptions[subText]) {
-                    delete subscriptions[subText]
+            if(subscriptions.has(subText)) {
+                    subscriptions.delete(subText)
                     sendOnOpen(JSON.stringify(["CLOSE", subText]));
             }
     }
