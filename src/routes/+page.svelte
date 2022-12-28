@@ -1,5 +1,5 @@
 <script>
-	import {getEventsByFilter, db} from '$lib/subscription'
+	import {getEventsByFilter} from '$lib/db'
 	import Profile from './Profile.svelte'
 	import DMs from './DMs.svelte'
 	import Contacts from './Contacts.svelte';
@@ -23,7 +23,6 @@
 	$: document.publishedProfilesByPubKey=$publishedProfilesByPubKey
 	document.subscribeAndCacheResultsStore=subscribeAndCacheResultsStore
 	document.getEventsByFilter=getEventsByFilter
-	document.db=db;
 	$: document.received=$received
 </script>
 
