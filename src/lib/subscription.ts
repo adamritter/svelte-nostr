@@ -5,7 +5,8 @@ import type {Event, Filter} from 'nostr-tools'
 import {type Relay, type Sub, relayInit } from './relay';
 import type { QueryInfo } from './db-ievent';
 import { getEventsByFilter, putEvents } from './db';
-import { getFilterToRequest, type Options } from './get-filter-to-request';
+import { getFilterToRequest, type Options, type ExtendedFilter, simplifiedFilter } from './get-filter-to-request';
+
 
 type Subscription={
     events: Event[],
@@ -90,22 +91,8 @@ function eventReceived(subscription:Subscription, event:Event & {id:string}) {
         newEventReceived(subscription, event)
     }
 }
-let connected=false;
-let to_subscribe:Subscription[]=[];
-relay.connect().then(()=>{
-    connected=true;
-    for(let subscription of to_subscribe) {
-        subscribe(subscription)
-    }
-})
+relay.connect();
 function subscribe(subscription:Subscription) {
-    if(!connected) {
-        to_subscribe.push(subscription)
-        return;
-    }
-    if(!subscription.callback) {
-        return;
-    }
     console.log("relay.sub", subscription.subText,  subscription.filter)
     let sub=relay.sub([subscription.filter])
     subscription.sub=sub
@@ -117,7 +104,7 @@ function subscribe(subscription:Subscription) {
 }
 
 const getTimeSec=()=>Math.floor(Date.now()/1000);
-const matchImpossible=(filter:Filter)=>(filter.ids && filter.ids.length == 0) || (filter.authors && filter.authors.length == 0);
+const matchImpossible=(filter:ExtendedFilter)=>(filter.ids && filter.ids.length == 0) || (filter.authors && filter.authors.length == 0);
 
 /**
  put queried at, max timestamp, min timestamp (min timestamp is 0 if there was no limit reached) in database
@@ -131,7 +118,7 @@ const matchImpossible=(filter:Filter)=>(filter.ids && filter.ids.length == 0) ||
   onlyOne: return only one result
   autoClose: close subscription after first result
  */
-export function subscribeAndCacheResults(filter: Filter, callback: (events: Event[])=>void, options:Options={}) {
+export function subscribeAndCacheResults(filter: ExtendedFilter, callback: (events: Event[])=>void, options:Options={}) {
     if (filter.ids) {
         options.onlyOne=true;
     }
@@ -145,7 +132,7 @@ export function subscribeAndCacheResults(filter: Filter, callback: (events: Even
     let db_queried_at=getTimeSec();
     let subscription:Subscription|undefined;
     
-    getEventsByFilter(filter).then(({events, query_infos})=>{
+    getEventsByFilter(simplifiedFilter(filter)).then(({events, query_infos})=>{
         let num_events=events.length;
         console.timeLog(label, `got ${num_events} indexedDB events for filter, query_infos`, query_infos);
         if(events.length) {

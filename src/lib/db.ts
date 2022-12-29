@@ -6,13 +6,11 @@ import type { IEvent, QueryInfo } from './db-ievent';
 
 export class EventsDB extends Dexie {
     events!: Dexie.Table<IEvent>;
-    
     constructor() {  
-      super("nostr_events", {chromeTransactionDurability: "relaxed"});
-      
-      this.version(1).stores({
-        events: "++,filter"
-});
+        super("nostr_events", {chromeTransactionDurability: "relaxed"});
+        this.version(1).stores({
+            events: "++,filter"
+        });
     }
   }
   
@@ -45,7 +43,11 @@ function splitWhereClause(filter: Filter) : Dexie.Collection<IEvent, number> {
     return r;
 }
 
-// Exported only for debugging
+export function putEvents(filter: Filter, events: Event[], batchSize:number=30, query_info:QueryInfo|null=null) {
+    let toPutArray=getEventsToPut(filter, events, batchSize, query_info);
+    return db.events.bulkPut(toPutArray)
+}
+
 export function getEventsByFilter(filter: Filter): Promise<{events: Event[], query_infos: (IEvent&{query_info:QueryInfo})[] }> {
     filter={...filter}
     delete filter.limit
@@ -58,9 +60,3 @@ export function getEventsByFilter(filter: Filter): Promise<{events: Event[], que
                     return {events: flat_events, query_infos};
             });
 }
-
-export function putEvents(filter: Filter, events: Event[], batchSize:number=30, query_info:QueryInfo|null=null) {
-    let toPutArray=getEventsToPut(filter, events, batchSize, query_info);
-    return db.events.bulkPut(toPutArray)
-}
-
