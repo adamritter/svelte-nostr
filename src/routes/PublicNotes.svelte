@@ -31,7 +31,7 @@
 {#each publicNotes as publicNote}
     <span style="display: flex; gap: 10px; padding-bottom: 10px; padding-top: 10px ">
         <span style="flex-basis: 60px"><Photo data={profilesByPubKey[publicNote.pubkey]} /></span>
-        <span style="border-bottom: 1px solid #eee">
+        <span style="border-bottom: 1px solid #eee; width: 75vw; overflow: hidden">
                 <Profile data={profilesByPubKey[publicNote.pubkey]} pubkey={publicNote.pubkey} />
                 &nbsp;{timeAgo.format(publicNote.created_at*1000, 'twitter')}<br>
             {@html embedMedia(publicNote.content)}

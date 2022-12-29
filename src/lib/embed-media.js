@@ -207,4 +207,4 @@ export default {
 }
 */
 
-export const embedMedia = (content) => md.render(content)
+export const embedMedia = (content) => md.renderInline(content)
