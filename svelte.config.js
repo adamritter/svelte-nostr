@@ -9,7 +9,7 @@ const config = {
 		}),
 		prerender: { entries: [] },
 		paths: {
-			base: '/svelte-nostr',
+			// base: '/svelte-nostr',
 		},
 	}
 };

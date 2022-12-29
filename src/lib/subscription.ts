@@ -83,14 +83,19 @@ function newEventReceived(subscription:Subscription, event:Event) {
             subscription.newEvents.push(event)
         }
     }
-}
+};
 
 function eventReceived(subscription:Subscription, event:Event & {id:string}) {
     subscription.query_info.received_events++;
     if(!containsId(subscription.events, event.id)) {
         newEventReceived(subscription, event)
     }
-}
+};
+
+relay.on('disconnect', () => {
+    console.log("relay disconnected")
+});
+
 relay.connect();
 function subscribe(subscription:Subscription) {
     console.log("relay.sub", subscription.subText,  subscription.filter)
