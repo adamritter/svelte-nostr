@@ -1,11 +1,11 @@
 const putAtEnd=true;  // Wait for EOSE to put new events in the store
 
 import { normalizeRelayURL } from './helpers';
-import type { Event, Filter, Sub } from 'nostr-tools';
-import type { IEvent, QueryInfo } from './db-ievent';
+import type {Event, Filter} from 'nostr-tools'
+import {type Relay, type Sub, relayInit } from './relay';
+import type { QueryInfo } from './db-ievent';
 import { getEventsByFilter, putEvents } from './db';
 import { getFilterToRequest, type Options } from './get-filter-to-request';
-
 
 type Subscription={
     events: Event[],
@@ -19,17 +19,17 @@ type Subscription={
     query_info: QueryInfo,
     eose?: boolean,
     autoClose?: boolean,
+    sub?: Sub,
 }
 
-let subscriptions:Map<string,Subscription>=new Map();
 let subscriptionId=0;
 
 // Registry: https://nostr-registry.netlify.app/
-let relay = "wss://nostr-relay.wlvs.space";
-relay = "wss://relay.damus.io"
-relay = "wss://nostr.fmt.wiz.biz"
-relay = normalizeRelayURL( relay );
-export let socket = new WebSocket( relay );
+let relays = "wss://nostr-relay.wlvs.space";
+relays = "wss://relay.damus.io"
+relays = "wss://nostr.fmt.wiz.biz"
+relays = normalizeRelayURL( relays );
+const relay:Relay = relayInit(relays)
 
 function containsId(events:Event[], id:string) {
     for(let event of events) {
@@ -40,28 +40,29 @@ function containsId(events:Event[], id:string) {
     return false;
 }
 
-function eoseReceived(subText:string) {
-    let subscription=subscriptions.get(subText)
-    if(subscription) {
-        subscription.query_info.eose_received_at=getTimeSec()
-        subscription.query_info.total_events=subscription.events.length
-        subscription.query_info.new_events=subscription.newEvents.length
+let unsubscribe=(subscription:Subscription) => {
+    subscription.sub?.unsub();
+    subscription.sub=undefined;
+}
 
-        console.timeLog(subscription.label, "EOSE with "+subscription.events.length+
-            " events, from that "+subscription.newEvents.length+" new");
-        console.timeEnd(subscription.label);
-        console.log("Writing query info", subscription.query_info)
-        putEvents(subscription.filter, subscription.newEvents, undefined, subscription.query_info)
-        subscription.newEvents=[]
-        if(subscription.changed) {
-            subscription.callback(subscription.events);
-        }
-        subscription.eose=true;
+function eoseReceived(subscription:Subscription) {
+    subscription.query_info.eose_received_at=getTimeSec()
+    subscription.query_info.total_events=subscription.events.length
+    subscription.query_info.new_events=subscription.newEvents.length
+
+    console.timeLog(subscription.label, "EOSE with "+subscription.events.length+
+        " events, from that "+subscription.newEvents.length+" new");
+    console.timeEnd(subscription.label);
+    console.log("Writing query info", subscription.query_info)
+    putEvents(subscription.filter, subscription.newEvents, undefined, subscription.query_info)
+    subscription.newEvents=[]
+    if(subscription.changed && subscription.callback) {
+        subscription.callback(subscription.events);
     }
-    
-    if(!subscription || subscription.autoClose) {
-        socket.send(JSON.stringify(["CLOSE", subText]))
-        subscriptions.delete(subText)
+    subscription.eose=true;
+
+    if(subscription.autoClose) {
+        unsubscribe(subscription)
     }
 }
 
@@ -83,43 +84,39 @@ function newEventReceived(subscription:Subscription, event:Event) {
     }
 }
 
-function eventReceived(subText:string, event:Event & {id:string}) {
-    let subscription=subscriptions.get(subText)
-    if(subscription) {
-        subscription.query_info.received_events++;
-        if(!containsId(subscription.events, event.id)) {
-            newEventReceived(subscription, event)
-        }
+function eventReceived(subscription:Subscription, event:Event & {id:string}) {
+    subscription.query_info.received_events++;
+    if(!containsId(subscription.events, event.id)) {
+        newEventReceived(subscription, event)
     }
 }
-
-socket.addEventListener('message', function( message ) {
-    console.log("got message", message)
-        var event = JSON.parse( message.data );
-        // showEvent(event);
-        if(event[0]=="EVENT") {
-            eventReceived(event[1], event[2])
-        } else if (event[0]=="EOSE") {
-            eoseReceived(event[1])
-        }
-});
-let send_on_open:string[]=[]
-socket.addEventListener('open', function() {
-        for(let i=0; i<send_on_open.length; i++) {
-                socket.send(send_on_open[i])
-        }
-        send_on_open.length=0
-});
-
-function sendOnOpen(data:string) {
-        if(socket.readyState==1) {
-                socket.send(data)
-        } else {
-                send_on_open.push(data)
-        }
+let connected=false;
+let to_subscribe:Subscription[]=[];
+relay.connect().then(()=>{
+    connected=true;
+    for(let subscription of to_subscribe) {
+        subscribe(subscription)
+    }
+})
+function subscribe(subscription:Subscription) {
+    if(!connected) {
+        to_subscribe.push(subscription)
+        return;
+    }
+    if(!subscription.callback) {
+        return;
+    }
+    console.log("relay.sub", subscription.subText,  subscription.filter)
+    let sub=relay.sub([subscription.filter])
+    subscription.sub=sub
+    sub.on('event', (event: Event & {id: string}) => {
+        console.log("event", subscription.subText, event)
+        eventReceived(subscription, event)
+    })
+    sub.on('eose', () => eoseReceived(subscription))
 }
-const getTimeSec=()=>Math.floor(Date.now()/1000);
 
+const getTimeSec=()=>Math.floor(Date.now()/1000);
 const matchImpossible=(filter:Filter)=>(filter.ids && filter.ids.length == 0) || (filter.authors && filter.authors.length == 0);
 
 /**
@@ -146,6 +143,7 @@ export function subscribeAndCacheResults(filter: Filter, callback: (events: Even
     let subText="sub"+subscriptionId
     subscriptionId=subscriptionId+1
     let db_queried_at=getTimeSec();
+    let subscription:Subscription|undefined;
     
     getEventsByFilter(filter).then(({events, query_infos})=>{
         let num_events=events.length;
@@ -155,19 +153,18 @@ export function subscribeAndCacheResults(filter: Filter, callback: (events: Even
         }
         let filter_result=getFilterToRequest(label, filter, options, events, query_infos)
         if(filter_result) {
-            let subscription:Subscription={events, callback, filter: filter_result.filter, changed: false, options,
+            subscription={events, callback, filter: filter_result.filter, changed: false, options,
                 label, subText, newEvents: [], query_info: {db_queried_at, req_sent_at: getTimeSec(), received_events: 0,
                     last_req_sent_at: filter_result.last_req_sent_at}};
-            subscriptions.set(subText, subscription)
             console.log("sending subscription REQ", subText, subscription.filter, ", original label", subscription.label,
                 ", req_sent_at", subscription.query_info.req_sent_at)
-            sendOnOpen(JSON.stringify(["REQ", subText, subscription.filter]));
+            subscribe(subscription)
         }
     })
     return ()=>{
-            if(subscriptions.has(subText)) {
-                    subscriptions.delete(subText)
-                    sendOnOpen(JSON.stringify(["CLOSE", subText]));
+            if(subscription) {
+                unsubscribe(subscription)
+                subscription.callback=null;
             }
     }
 }

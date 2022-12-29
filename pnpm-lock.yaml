@@ -22,7 +22,7 @@ specifiers:
   markdown-it-sub: ^1.0.0
   markdown-it-sup: ^1.0.0
   markdown-it-task-lists: ^2.1.1
-  nostr-tools: ^1.0.0
+  nostr-tools: ^1.1.0
   pnpm: ^7.19.0
   prettier: ^2.8.0
   prettier-plugin-svelte: ^2.8.1
@@ -47,7 +47,7 @@ dependencies:
   markdown-it-sub: 1.0.0
   markdown-it-sup: 1.0.0
   markdown-it-task-lists: 2.1.1
-  nostr-tools: 1.0.0
+  nostr-tools: 1.1.0
   pnpm: 7.19.0
   static-server: 2.2.1
 
@@ -1295,15 +1295,6 @@ packages:
 
   /balanced-match/1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
-
-  /base64-arraybuffer/1.0.2:
-    resolution: {integrity: sha512-I3yl4r9QB5ZRY3XuJVEPfc2XhZO6YweFPI+UovAzn+8/hb3oJ6lnysaFcjVpkCPfVWFUDvoZ8kmVDP7WyRtYtQ==}
-    engines: {node: '>= 0.6.0'}
-    dev: false
-
-  /bech32/2.0.0:
-    resolution: {integrity: sha512-LcknSilhIGatDAsY1ak2I8VtGaHNhgMSYVxFrGLXv+xLHytaKZKcaUJJUE7qmBr7h33o5YQwP55pMI0xmkpJwg==}
-    dev: false
 
   /binary-extensions/2.2.0:
     resolution: {integrity: sha512-jDctJ/IVQbZoJykoeHbhXpOlNBqGNcwXJKJog42E5HDPUwQTSdjCHdihjj0DlnheQ7blbT6dHOafNAiS8ooQKA==}
@@ -2803,15 +2794,14 @@ packages:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
     engines: {node: '>=0.10.0'}
 
-  /nostr-tools/1.0.0:
-    resolution: {integrity: sha512-PEElBgGJVS6rCzb+ydqKDlX3ouHhin8z8R4fu00abgcjAZ+qGuIbWF2wr1+Wen5z4XOsv2e6KwmLJIU4Sj5c4A==}
+  /nostr-tools/1.1.0:
+    resolution: {integrity: sha512-T+Fj29ff6dn1YMMDrG03OctxrWVKeei/DZatVjgoad0tYUCiBBERk37qkpCqFAoKYVreIPl/Mxrh2DVfMzLA7g==}
     dependencies:
       '@noble/hashes': 0.5.9
       '@noble/secp256k1': 1.7.0
+      '@scure/base': 1.1.1
       '@scure/bip32': 1.1.1
       '@scure/bip39': 1.1.0
-      base64-arraybuffer: 1.0.2
-      bech32: 2.0.0
     dev: false
 
   /npm-run-path/4.0.1:
