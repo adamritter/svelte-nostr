@@ -20,11 +20,11 @@ jobs:
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
+    - uses: actions/checkout@v3
     - uses: pnpm/action-setup@v2
       with:
         version: 6.0.2
     - run: npx pnpm install --global pnpm
-    - uses: adamritter/svelte-nostr@master
     - run: pwd
     - run: ls -l
     - run: pnpm ci
