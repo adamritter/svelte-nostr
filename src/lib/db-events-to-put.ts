@@ -15,22 +15,24 @@ import type { IEvent, QueryInfo } from "./db-ievent";
  * @param {*} query_info 
  * @returns 
  */
- export function getEventsToPut(filter:Filter, events: Event[], batchSize:number=30, query_info:QueryInfo|null=null) : IEvent[] {
-    filter={...filter}
-    delete filter.limit
-    delete filter.since;
-    delete filter.until;
-    let toPut:Map<string,Event[]> = new Map();
-    // Needed filter splitting for writing query_info for empty filter results as well.
-    for(let f of splitFilter(filter)) {
-        toPut.set(JSON.stringify(f), []);
-    }
-    for (let event of events) {
-        splitAndAddToPut(toPut, filter, event)
-    }
+ export function getEventsToPut(filters:Filter[], events: Event[], batchSize:number=30, query_info:QueryInfo|null=null) : IEvent[] {
     let toPutArray:IEvent[]=[];
-    for(let [filter, events] of toPut) {
-        addBatchedQueries(toPutArray, filter, events, batchSize, query_info);
+    for(let filter of filters) {
+        filter={...filter}
+        delete filter.limit
+        delete filter.since;
+        delete filter.until;
+        let toPut:Map<string,Event[]> = new Map();
+        // Needed filter splitting for writing query_info for empty filter results as well.
+        for(let f of splitFilter(filter)) {
+            toPut.set(JSON.stringify(f), []);
+        }
+        for (let event of events) {
+            splitAndAddToPut(toPut, filter, event)
+        }
+        for(let [filter, events] of toPut) {
+            addBatchedQueries(toPutArray, filter, events, batchSize, query_info);
+        }
     }
     return toPutArray;
 }

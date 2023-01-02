@@ -1,12 +1,14 @@
 <script>
-	import {getEventsByFilter} from '$lib/db'
+	import {getEventsByFilters} from '$lib/db'
 	import Profile from './Profile.svelte'
 	import DMs from './DMs.svelte'
 	import Contacts from './Contacts.svelte';
 	import PublicNotes from './PublicNotes.svelte';
 	import Photo from './Photo.svelte';
 	import {publishedStore, receivedStore, publishedProfilesStore, publishedProfilesByPubKeyStore,
-		contactsStore, eventsFromFollowedStore, subscribeAndCacheResultsStore} from '$lib/svelte-nostr-stores'
+		contactsStore, eventsFromFollowedStore, subscribeAndCacheResultsStore,
+		repliesFilter,
+		repliesStore} from '$lib/svelte-nostr-stores'
 	export let data;
 
 	let pubKey = data.pubkey;
@@ -24,11 +26,16 @@
 	// Debug
 	$: document.publishedProfilesByPubKey=$publishedProfilesByPubKey
 	document.subscribeAndCacheResultsStore=subscribeAndCacheResultsStore
-	document.getEventsByFilter=getEventsByFilter
+	document.getEventsByFilters=getEventsByFilters
 	$: document.received=$received
 	$: mainPageEvents = $published.concat($received).concat($eventsFromFollowed)
 	$: viewAuthorStore = viewauthor ? publishedStore(viewauthor) : null;
 	$: pageEvents = (viewauthor) ? ((viewauthor==pubKey) ? $published : $viewAuthorStore) : mainPageEvents
+	$: document.pageEvents=pageEvents
+	document.repliesFilter=repliesFilter
+	$: replies = repliesStore(pageEvents)
+	$: document.rstore=replies
+	$: document.replies = $replies
 </script>
 
 <svelte:head>
@@ -38,10 +45,10 @@
 
 
 <section>
-	<a href="#" on:click={()=>{page="posts"; viewauthor=null}}><b>Posts</b></a>
-	<a href="#" on:click={()=>{page="posts_replies"; viewauthor=null}}><b>Posts and replies</b></a>
-	<a href="#" on:click={()=>page="contacts"}><b>Contacts</b></a>
-	<a href="#" on:click={()=>page="dms"}><b>DMs</b></a>
+	<a href="" on:click={()=>{page="posts"; viewauthor=null}}><b>Posts</b></a>
+	<a href="" on:click={()=>{page="posts_replies"; viewauthor=null}}><b>Posts and replies</b></a>
+	<a href="" on:click={()=>page="contacts"}><b>Contacts</b></a>
+	<a href="" on:click={()=>page="dms"}><b>DMs</b></a>
 
 	<!--  5: event deletion, 6???, 7: reaction-->
 	<span>

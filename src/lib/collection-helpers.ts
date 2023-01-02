@@ -7,12 +7,13 @@ export function mapBy<Item,Key>(arr: Array<Item>, by: (value: Item)=>Key): Map<K
         
 
 export function groupBy<Item,Key>(arr: Array<Item>, by: (value: Item)=>Key): Map<Key,Item[]> {
-    return arr.reduce((acc: any, item: any) => {
+    return arr.reduce((acc: Map<Key,Item[]>, item: Item) => {
         const key = by(item);
-        if (!acc[key]) {
-            acc[key] = [];
+        if (!acc.get(key)) {
+            acc.set(key, [])
         }
-        acc[key].push(item);
+        // @ts-ignore
+        acc.get(key).push(item);
         return acc;
     }, new Map());
 }
@@ -33,4 +34,8 @@ export function sortBy(arr: Array<any>, by: (value: any)=>any): Array<any> {
         }
         return 0;
     });
+}
+
+export function mapValues<K, V, T>(obj: Map<K, V>, func: (value: V)=>T): Map<K,T> {
+    return new Map(Array.from(obj.entries()).map(([key, value]) => [key, func(value)]));
 }
