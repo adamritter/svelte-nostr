@@ -58,3 +58,11 @@ test("Multiple filters", () => {
     let result = getFiltersToRequest("sub", [filter1, filter2], {}, events, []);
     expect(result).toEqual([{authors: ["pub1"], since: 2}, {authors: ["pub2"], since: 3}, {authors: ["pub3"]}, {authors: ["pub1", "pub2", "pub3"]}]);
 });
+
+test("Empty filters", () => {
+    let filter1:ExtendedFilter = {authors: []};
+    let filter2:ExtendedFilter = {ids: []};
+    let events:Event[] = [];
+    let result = getFiltersToRequest("sub", [filter1, filter2], {}, events, []);
+    expect(result).toEqual(undefined);
+});

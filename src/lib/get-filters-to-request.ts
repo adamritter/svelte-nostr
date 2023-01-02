@@ -28,7 +28,6 @@ function filterOnlyOne(events:Event[], filter:ExtendedFilter) {
     }
     return filter
 }
-
 export function getFiltersToRequest(label: string, filters: ExtendedFilter[], options: Options, events:Event[],
         query_infos:(IEvent&{query_info:QueryInfo})[]) : Filter[]|undefined {
     if (neverSend) {
@@ -40,6 +39,12 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
     for(let filter of filters) {
         filter={...filter}
         let onlyOne=options.onlyOne
+        if((filter.ids && filter.ids.length==0) ||
+            (filter.authors && filter.authors.length==0) ||
+            (filter.kinds && filter.kinds.length==0)) {
+            console.timeLog(label, 'no need to send subscription because filter is empty');
+            continue;
+        }
         if(filter.ids) {
             onlyOne=true;
         }
@@ -47,8 +52,7 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
             let filterOptional=filterOnlyOne(events, filter)
             if(!filterOptional) {
                 console.timeLog(label, 'no need to send subscription because all events are already in the database');
-                console.timeEnd(label);
-                return;
+                continue;
             }
             filter=filterOptional
         }
@@ -94,6 +98,9 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
             filter.authors=rest;
         }
         reply_filters.push(simplifiedFilter(filter))
+    }
+    if(reply_filters.length==0) {
+        return;
     }
     return reply_filters
 }
