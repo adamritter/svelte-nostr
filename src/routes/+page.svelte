@@ -36,6 +36,7 @@
 	$: replies = repliesStore(pageEvents)
 	$: document.rstore=replies
 	$: document.replies = $replies
+	$: document.data=data
 </script>
 
 <svelte:head>

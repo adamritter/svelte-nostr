@@ -6,5 +6,11 @@ import { readPrivateKey, readPublicKey } from '../lib/browser-key-manager';
 
 
 export async function load() {
-    return {pubkey: await readPublicKey(), private_key: readPrivateKey()};
+    let pubkey= await readPublicKey();
+    let followed=null;
+    if(pubkey) {
+        let {getFollowed}=await import('../lib/svelte-nostr-stores')
+        followed=await getFollowed(pubkey)
+    }
+    return {pubkey, followed, private_key: readPrivateKey()};
 }

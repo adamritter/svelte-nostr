@@ -13,7 +13,7 @@ async function tryConnect(url:string) {
         connected_relays.set(url, relay)
         result="connected"
     })
-    relay.on("error", (err) => {
+    relay.on("error", (err:any) => {
         result="error"
     })
     await relay.connect();

@@ -191,11 +191,12 @@ export function subscribeAndCacheResults(filters: ExtendedFilter[], callback: (e
     
     getEventsByFilters(filters.map(simplifiedFilter)).then(({events, query_infos})=>{
         let num_events=events.length;
-        console.timeLog(label, `got ${num_events} indexedDB events for filter, query_infos`, query_infos);
         if(events.length) {
             callback(events)
         }
         let filter_result=getFiltersToRequest(label, filters, options, events, query_infos)
+        console.timeLog(label, `got ${num_events} indexedDB events for filter, query_infos`, query_infos,
+            "filter_result", filter_result);
         if(filter_result) {
             subscription={events, callback, filters: filter_result, changed: false, options,
                 label, subText, newEvents: [],
