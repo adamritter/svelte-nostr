@@ -12,7 +12,7 @@ export type Relay = {
   close: () => Promise<void>
   sub: (filters: Filter[], opts?: SubscriptionOptions) => Sub
   publish: (event: Event) => Pub
-  on: (type: RelayEvent, cb: (event: Event)=>void) => void
+  on: (type: RelayEvent, cb: any) => void
   off: (type: RelayEvent, cb: any) => void
 }
 export type Pub = {
