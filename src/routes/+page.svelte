@@ -8,34 +8,34 @@
 	import {publishedStore, receivedStore, publishedProfilesStore, publishedProfilesByPubKeyStore,
 		contactsStore, eventsFromFollowedStore, subscribeAndCacheResultsStore,
 		repliesFilter,
-		repliesStore} from '$lib/svelte-nostr-stores'
+		repliesStore, getEvents} from '$lib/svelte-nostr-stores'
+	import { Kind } from 'nostr-tools';
+	import {mapBy} from '$lib/collection-helpers'
 	export let data;
 
 	let pubKey = data.pubkey;
 	console.log("pub key:", pubKey)
-	let published=publishedStore(pubKey)
-	let received=receivedStore(pubKey)
-	$: kinds=$published.map(author => author.kind)
-	let published_profiles=publishedProfilesStore(published, pubKey)
-	let contacts=contactsStore(published)
-	let publishedProfilesByPubKey=publishedProfilesByPubKeyStore(published_profiles)
-	let eventsFromFollowed=eventsFromFollowedStore(contacts)
+	let events=getEvents(pubKey, data.followed)
+	$: published=$events.filter(e => e.author==pubKey)
+	$: received=$events.filter(e => e.tags.filter(t => t[0]=="p" && t[1]==pubKey).length>0)
+	$: kinds=published.map(author => author.kind)
+	$: published_profiles=$events.filter(e => e.kind==Kind.Metadata)
+	$: contacts=data.followed  // make it reactive
+	$: publishedProfilesByPubKey=mapBy(published_profiles, item=>item.pubkey)
 	let viewauthor;
 	let page="posts"
 
 	// Debug
-	$: document.publishedProfilesByPubKey=$publishedProfilesByPubKey
+	$: document.publishedProfilesByPubKey=publishedProfilesByPubKey
 	document.subscribeAndCacheResultsStore=subscribeAndCacheResultsStore
 	document.getEventsByFilters=getEventsByFilters
-	$: document.received=$received
-	$: mainPageEvents = $published.concat($received).concat($eventsFromFollowed)
-	$: viewAuthorStore = viewauthor ? publishedStore(viewauthor) : null;
-	$: pageEvents = (viewauthor) ? ((viewauthor==pubKey) ? $published : $viewAuthorStore) : mainPageEvents
+	$: document.received=received
+	$: pageEvents = (viewauthor) ? $events.filter((event)=>event.author==viewauthor) : $events
 	$: document.pageEvents=pageEvents
 	document.repliesFilter=repliesFilter
-	$: replies = repliesStore(pageEvents)
-	$: document.rstore=replies
-	$: document.replies = $replies
+	// $: replies = repliesStore(pageEvents)
+	// $: document.rstore=replies
+	// $: document.replies = $replies
 	$: document.data=data
 </script>
 
@@ -53,25 +53,25 @@
 
 	<!--  5: event deletion, 6???, 7: reaction-->
 	<span>
-	<Photo data={$publishedProfilesByPubKey[pubKey]}
+	<Photo data={publishedProfilesByPubKey[pubKey]}
 		on:click={()=>viewauthor=pubKey} />
-	<Profile data={$publishedProfilesByPubKey[pubKey]} pubkey={pubKey} />
+	<Profile data={publishedProfilesByPubKey[pubKey]} pubkey={pubKey} />
 	</span>
 	<span style="display: flex; gap: 20px; flex-direction: row">
 		<span style:display={(page=="posts") ? "block" : "none"}>
 			<PublicNotes only_posts=true events={pageEvents}
-				profilesByPubKey={$publishedProfilesByPubKey}
+				profilesByPubKey={publishedProfilesByPubKey}
 				on:viewauthor={(e)=>{viewauthor=e.detail; page="posts_replies"}}/></span>
 		<span style:display={(page=="posts_replies") ? "block" : "none"}>
 			<PublicNotes events={pageEvents}
-				profilesByPubKey={$publishedProfilesByPubKey}
+				profilesByPubKey={publishedProfilesByPubKey}
 				on:viewauthor={(e)=>{viewauthor=e.detail; page="posts_replies"}} />
 		</span>
 		{#if data.private_key} <!-- TODO: use window.nostr encode / decode instead if the private key doesn't exist -->
-		<span style:display={(page=="dms") ? "block" : "none"}><DMs events={$published.concat($received)} privKey={data.private_key} pubKey={pubKey} profilesByPubKey={$publishedProfilesByPubKey} /></span>
+		<span style:display={(page=="dms") ? "block" : "none"}><DMs events={events} privKey={data.private_key} pubKey={pubKey} profilesByPubKey={publishedProfilesByPubKey} /></span>
 		{/if}
 		<span style="flex-basis: 500px; display: block">
-			<Contacts contacts={$contacts} profilesByPubKey={$publishedProfilesByPubKey}
+			<Contacts contacts={contacts} profilesByPubKey={publishedProfilesByPubKey}
 			on:viewauthor={(e)=>{viewauthor=e.detail; page="posts_replies"}} 
 			/>
 		</span>

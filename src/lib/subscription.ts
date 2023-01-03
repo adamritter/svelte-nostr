@@ -87,8 +87,18 @@ export let allRelays=[
 let relays = "wss://nostr-relay.wlvs.space";
 relays = "wss://relay.damus.io"
 relays = "wss://nostr.fmt.wiz.biz"
+// relays = "wss://nostr.slothy.win"
+// relays ="wss://nostr.bongbong.com",  // fast
+relays = "wss://relay.damus.io"
+relays = "wss://nostr.fmt.wiz.biz"
 relays = normalizeRelayURL( relays );
 const relay:Relay = relayInit(relays)
+relay.on('error', (err) => {
+    console.log("Relay error", err);
+})
+relay.on('notice', (notice) => {
+    console.log("Relay notice", notice);
+})
 
 function containsId(events:Event[], id:string) {
     for(let event of events) {

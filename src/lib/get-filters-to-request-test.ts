@@ -66,3 +66,25 @@ test("Empty filters", () => {
     let result = getFiltersToRequest("sub", [filter1, filter2], {}, events, []);
     expect(result).toEqual(undefined);
 });
+
+test("Author with since", () => {
+    let filter:ExtendedFilter={authors: ["pub1"], limit: 200}
+    let result = getFiltersToRequest("sub", [filter], {}, [{pubkey: "pub1", created_at: 1, kind: 0, tags: [], content: ""}], []);
+    expect(result).toEqual([{authors: ["pub1"], limit: 200, since: 2}]);
+
+})
+
+
+test("Tag filters", () => {
+    let filter:ExtendedFilter = {"#p": ["p1", "p2"]};
+    let events:Event[] = [
+        {id: "id1", pubkey: "pub1", tags: [["p", "p1"], ["e", "e1"]], kind:0,
+            created_at: 1, content: "HW"},
+        {id: "id2", pubkey: "pub2", tags: [["p", "p1"], ["e", "e1"]], kind:0,
+            created_at: 2, content: "HW"},
+        {id: "id3", pubkey: "pub2", tags: [["p", "p1"], ["p", "p2"]], kind:0,
+            created_at: 1, content: "HW"},
+        ];
+    let result = getFiltersToRequest("sub", [filter], {}, events, []);
+    expect(result).toEqual([{"#p": ["p1"], since: 3}, {"#p": ["p2"], since: 2}]);
+});

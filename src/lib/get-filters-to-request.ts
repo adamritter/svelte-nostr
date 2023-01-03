@@ -56,31 +56,12 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
             }
             filter=filterOptional
         }
-        /*// This is the point where we can optimize the requests by setting query time limits.
-        // Also if there are different last query times for different subfilters, we need to send multiple requests.
-        // Those multiple requests should probably still shared the same event stream, just like having multiple relays.
-        // We need to differentiate between client subscriptions and server subscriptions.
-        // One client subscription can have multiple server subscriptions.
-        let last_req_sent_at=query_infos.map((query_info)=>query_info.query_info.req_sent_at).sort().pop()
-        if(last_req_sent_at!=undefined) {
-            let timePassed=getTimeSec()-last_req_sent_at;
-        console.log("last_req_sent_at", last_req_sent_at, "timePassed sec", timePassed)
-            if (timePassed < minTimeoutForSubscriptionRenewalSeconds) {
-                console.timeLog(label, 'not enough time passed, not sending subscription');
-                console.timeEnd(label);
-                return;
-            }
-            if(requestOnlyNewData && !options.onlyOne) {
-                filter.since=last_req_sent_at-60*6;
-            }
-        }*/
+        
         // Split by authors
         if(filter.authors && !filter.retrieve_old) {
             console.log("splitting by authors", filter.authors)
             console.log("events", events)
             let events_by_author=groupBy(events, (event)=>event.pubkey);
-            console.log(events_by_author.get("pub1"))
-            console.log("events_by_author", events_by_author)
             let last_created_at_by_author = mapValues(events_by_author, (events)=>Math.max(...events.map((event)=>event.created_at)))
             console.log("last_created_at_by_author", last_created_at_by_author)
             let rest=[]
@@ -95,9 +76,43 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
                     reply_filters.push(simplifiedFilter(new_filter))
                 }
             }
+            if (rest.length == 0) {
+                continue;
+            }
             filter.authors=rest;
         }
-        reply_filters.push(simplifiedFilter(filter))
+        // Split by tags
+        //Get tags from filter 
+        let skip_final=false;
+        for(let tag_key of Object.keys(filter)) {
+            if (!tag_key.startsWith("#")) {
+                continue;
+            }
+            console.log("Splitting by tag", tag_key, filter[tag_key]);
+            let rest=[]
+            for(let tag of filter[tag_key]) {
+                let tag_type=tag_key.slice(1)
+                let last_created_at=Math.max(...events.filter(
+                    (event)=>event.tags.find((etag)=>etag[0]==tag_type && etag[1]==tag)).map((event)=>event.created_at))
+                console.log("last_created_at", last_created_at, tag_type, tag)
+                if(last_created_at==undefined) {
+                    rest.push(tag)
+                } else {
+                    let new_filter={...filter}
+                    new_filter[tag_key]=[tag]
+                    new_filter.since=last_created_at+1;
+                    reply_filters.push(simplifiedFilter(new_filter))
+                }
+            }
+            if (rest.length == 0) {
+                skip_final=true;
+                break;
+            }
+            filter[tag_key]=rest;
+        }
+        if (!skip_final) {
+            reply_filters.push(simplifiedFilter(filter))
+        }
     }
     if(reply_filters.length==0) {
         return;
@@ -120,14 +135,26 @@ export type ExtendedFilter = {
   }
   let selfOrFirst=(a:string|string[])=>(typeof(a)=="string") ? a : a[0]
   export function simplifiedFilter(extended_filter: ExtendedFilter) : Filter {
-    let filter: Filter = {
-      ids: extended_filter.ids ? extended_filter.ids.map(selfOrFirst) : undefined,
-      kinds: extended_filter.kinds,
-      authors: extended_filter.authors ? extended_filter.authors.map(selfOrFirst) : undefined,
-      since: extended_filter.since,
-      until: extended_filter.until,
-      limit: extended_filter.limit,
+    let filter: Filter = {};
+    if (extended_filter.ids) {
+        filter.ids = extended_filter.ids.map(selfOrFirst)
     }
+    if (extended_filter.kinds) {
+        filter.kinds = extended_filter.kinds
+    }
+    if (extended_filter.authors) {
+        filter.authors = extended_filter.authors.map(selfOrFirst)
+    }
+    if (extended_filter.since) {
+        filter.since = extended_filter.since
+    }
+    if (extended_filter.until) {
+        filter.until = extended_filter.until
+    }
+    if (extended_filter.limit) {
+        filter.limit = extended_filter.limit
+    }
+    
     for (let key of Object.keys(extended_filter)) {
       if (key.startsWith("#")) {
         // @ts-ignore

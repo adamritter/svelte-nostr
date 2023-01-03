@@ -46,6 +46,7 @@ function splitWhereClause(filter: Filter, whereClause:WhereClause<IEvent,any>) :
 }
 
 export function putEvents(filters: Filter[], events: Event[], batchSize:number=30, query_info:QueryInfo|null=null) {
+    console.log("putEvents called with ", events.length, " events")
     let toPutArray=getEventsToPut(filters, events, batchSize, query_info);
     return db.events.bulkPut(toPutArray)
 }
