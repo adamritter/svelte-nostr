@@ -117,7 +117,7 @@ export let getEvents=(pubkey: string, followed: string[])=>subscribeAndCacheResu
     {"authors": [pubkey], "kinds": [Kind.Metadata]},
     {"authors": followed, limit: 50},
     {"#p": followed, limit: 50},
-    {"authors": followed, "kinds": [Kind.Contacts], onlyOne: true},
-    {"authors": followed, "kinds": [Kind.Metadata], onlyOne: true},
+    {"authors": followed, "kinds": [Kind.Contacts]},
+    {"authors": followed, "kinds": [Kind.Metadata]},
 ])
 

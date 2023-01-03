@@ -88,9 +88,11 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
             if (!tag_key.startsWith("#")) {
                 continue;
             }
-            console.log("Splitting by tag", tag_key, filter[tag_key]);
+            // @ts-ignore
+            let tags:string[]=filter[tag_key];
+            console.log("Splitting by tag", tag_key, tags);
             let rest=[]
-            for(let tag of filter[tag_key]) {
+            for(let tag of tags) {
                 let tag_type=tag_key.slice(1)
                 let last_created_at=Math.max(...events.filter(
                     (event)=>event.tags.find((etag)=>etag[0]==tag_type && etag[1]==tag)).map((event)=>event.created_at))
@@ -99,6 +101,7 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
                     rest.push(tag)
                 } else {
                     let new_filter={...filter}
+                    // @ts-ignore
                     new_filter[tag_key]=[tag]
                     new_filter.since=last_created_at+1;
                     reply_filters.push(simplifiedFilter(new_filter))
@@ -108,6 +111,7 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
                 skip_final=true;
                 break;
             }
+            // @ts-ignore
             filter[tag_key]=rest;
         }
         if (!skip_final) {

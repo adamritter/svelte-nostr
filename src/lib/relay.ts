@@ -35,6 +35,7 @@ export function relayInit(url: string): Relay {
   var ws: WebSocket
   var resolveClose: () => void
   let connected=false;
+  let sendOnConnect:string[]=[]
   var untilOpen: Promise<void>
   var openSubs: {[id: string]: {filters: Filter[]} & SubscriptionOptions} = {}
   var listeners: {
@@ -71,6 +72,11 @@ export function relayInit(url: string): Relay {
         for(let subid in openSubs) {
             trySend(['REQ', subid, ...openSubs[subid].filters])
         }
+        for (let msg of sendOnConnect) {
+          ws.send(msg)
+        }
+        sendOnConnect = []
+        
         listeners.connect.forEach(cb => cb())
         resolve()
       }
@@ -79,6 +85,7 @@ export function relayInit(url: string): Relay {
         reject()
       }
       ws.onclose = async () => {
+        connected=false;
         listeners.disconnect.forEach(cb => cb())
         resolveClose && resolveClose()
       }
@@ -142,8 +149,11 @@ export function relayInit(url: string): Relay {
   async function trySend(params: [string, ...any]) {
     let msg = JSON.stringify(params)
 
-    await untilOpen
-    ws.send(msg)
+    if(connected) {
+      ws.send(msg)
+    } else {
+      sendOnConnect.push(msg)
+    }
   }
 
   const sub = (
