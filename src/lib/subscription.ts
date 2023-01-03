@@ -1,12 +1,10 @@
 const putAtEnd=true;  // Wait for EOSE to put new events in the store
 
-import { normalizeRelayURL } from './helpers';
 import type {Event, Filter} from 'nostr-tools'
 import type { QueryInfo } from './db-ievent';
 import { getEventsByFilters, putEvents } from './db';
 import { getFiltersToRequest, type Options, type ExtendedFilter, simplifiedFilter } from './get-filters-to-request';
-import {  RelayPool, RelayPoolSubscription } from './relay-pool';
-import { after } from 'node:test';
+import { RelayPool, RelayPoolSubscription } from 'nostr-relaypool'
 
 type Subscription={
     events: Event[],
