@@ -2,14 +2,15 @@ const putAtEnd=true;  // Wait for EOSE to put new events in the store
 
 import { normalizeRelayURL } from './helpers';
 import type {Event, Filter} from 'nostr-tools'
-import {type Relay, type Sub, relayInit } from './relay';
 import type { QueryInfo } from './db-ievent';
 import { getEventsByFilters, putEvents } from './db';
 import { getFiltersToRequest, type Options, type ExtendedFilter, simplifiedFilter } from './get-filters-to-request';
-
+import {  RelayPool, RelayPoolSubscription } from './relay-pool';
+import { after } from 'node:test';
 
 type Subscription={
     events: Event[],
+    storedEvents: Event[],
     callback:any,
     filters:Filter[],
     changed: boolean,
@@ -20,7 +21,7 @@ type Subscription={
     query_info: QueryInfo,
     eose?: boolean,
     autoClose?: boolean,
-    sub?: Sub,
+    sub?: RelayPoolSubscription,
 }
 
 let subscriptionId=0;
@@ -84,20 +85,29 @@ export let allRelays=[
     "wss://relay.damus.io",
     "wss://nostr.bongbong.com",
 ]
-let relays = "wss://nostr-relay.wlvs.space";
-relays = "wss://relay.damus.io"
-relays = "wss://nostr.fmt.wiz.biz"
+// let relays = "wss://nostr-relay.wlvs.space";
+// relays = "wss://relay.damus.io"
+// relays = "wss://nostr.fmt.wiz.biz"
 // relays = "wss://nostr.slothy.win"
 // relays ="wss://nostr.bongbong.com",  // fast
-relays = "wss://relay.damus.io"
-relays = "wss://nostr.fmt.wiz.biz"
-relays = normalizeRelayURL( relays );
-const relay:Relay = relayInit(relays)
-relay.on('error', (err) => {
-    console.log("Relay error", err);
-})
-relay.on('notice', (notice) => {
-    console.log("Relay notice", notice);
+// relays = "wss://relay.damus.io"
+// relays = "wss://nostr.fmt.wiz.biz"
+// relays = normalizeRelayURL( relays );
+let relays=["wss://relay.damus.io", "wss://nostr.fmt.wiz.biz", "wss://nostr.bongbong.com",
+"wss://nostr-2.zebedee.cloud",
+    "wss://nostr.zaprite.io",
+    "wss://relay.nostr.ch",
+    "wss://nostr.delo.software",
+    "wss://nostr.nodeofsven.com",
+    "wss://nostr.oxtr.dev",
+    "wss://nostr-relay.wlvs.space",
+   ]
+const relayPool = new RelayPool(relays)
+relayPool.onerror = (err) => {
+    console.log("RelayPool error", err);
+}
+relayPool.onnotice((notice) => {
+    console.log("RelayPool notice", notice);
 })
 
 function containsId(events:Event[], id:string) {
@@ -114,66 +124,79 @@ let unsubscribe=(subscription:Subscription) => {
     subscription.sub=undefined;
 }
 
-function eoseReceived(subscription:Subscription) {
+function eoseReceived(subscription:Subscription, events: (Event& {id: string})[] ) {
     subscription.query_info.eose_received_at=getTimeSec()
     subscription.query_info.total_events=subscription.events.length
-    subscription.query_info.new_events=subscription.newEvents.length
+    subscription.query_info.new_events=events.length; // subscription.newEvents.length
+    let newEvents=events.filter((event) => !containsId(subscription.events, event.id))
+    
 
-    console.timeLog(subscription.label, "EOSE with "+subscription.events.length+
-        " events, from that "+subscription.newEvents.length+" new");
-    console.timeEnd(subscription.label);
+    console.timeLog(subscription.label, "EOSE with "+events.length+
+        " events, from that "+events.length+" new, total events: ", subscription.events.length);
     console.log("Writing query info", subscription.query_info)
-    putEvents(subscription.filters, subscription.newEvents, undefined, subscription.query_info)
-    subscription.newEvents=[]
+    putEvents(subscription.filters, newEvents, undefined, subscription.query_info)
     if(subscription.changed && subscription.callback) {
         subscription.callback(subscription.events);
     }
-    subscription.eose=true;
+    // subscription.eose=true;
 
-    if(subscription.autoClose) {
-        unsubscribe(subscription)
-    }
+    // if(subscription.autoClose) {
+        // unsubscribe(subscription)
+    // }
 }
 
-function newEventReceived(subscription:Subscription, event:Event) {
+function newEventReceived(subscription:Subscription, event:Event & {id:string}, afterEose: boolean) {
     subscription.changed=true;
     subscription.events.push(event)
-    
-    if (subscription.eose) {
-        putEvents(subscription.filters, [event])
+    let storeEvent=false;
+    if (afterEose) {
+        storeEvent=true;
+        
         console.time("callback")
         subscription.callback(subscription.events);
         console.timeEnd("callback")
     } else {
         if(!putAtEnd) {
-            putEvents(subscription.filters, [event])
+             storeEvent=true;
         } else {
             subscription.newEvents.push(event)
         }
     }
-};
-
-function eventReceived(subscription:Subscription, event:Event & {id:string}) {
-    subscription.query_info.received_events++;
-    if(!containsId(subscription.events, event.id)) {
-        newEventReceived(subscription, event)
+    if(storeEvent) {
+        if (!containsId(subscription.storedEvents, event.id)) {
+            putEvents(subscription.filters, [event])
+            subscription.storedEvents.push(event)
+        }
     }
 };
 
-relay.on('disconnect', () => {
-    console.log("relay disconnected")
+function eventReceived(subscription:Subscription, event:Event & {id:string}, afterEose: boolean) {
+    subscription.query_info.received_events++;
+    if(!containsId(subscription.events, event.id)) {
+        newEventReceived(subscription, event, afterEose)
+    }
+};
+relayPool.ondisconnect((msg: string) => {
+    console.log("relay disconnected", msg)
 });
 
-relay.connect();
 function subscribe(subscription:Subscription) {
     console.log("relay.sub", subscription.subText,  ...subscription.filters)
-    let sub=relay.sub(subscription.filters)
+    let sub=relayPool.sub(subscription.filters, relays)
     subscription.sub=sub
-    sub.on('event', (event: Event & {id: string}) => {
+
+    sub.onevent((event: Event & {id: string}, afterEose: boolean) => {
         console.log("event", subscription.subText, event)
-        eventReceived(subscription, event)
+        eventReceived(subscription, event, afterEose)
     })
-    sub.on('eose', () => eoseReceived(subscription))
+    sub.oneose((events, url) => {
+        console.log("eose received at", url)
+        if(events) {
+            eoseReceived(subscription, events)
+        } else {
+            console.warn("eose received without events (server sent eose twice")
+        }
+    })
 }
 
 const getTimeSec=()=>Math.floor(Date.now()/1000);
@@ -209,7 +232,7 @@ export function subscribeAndCacheResults(filters: ExtendedFilter[], callback: (e
             "filter_result", filter_result);
         if(filter_result) {
             subscription={events, callback, filters: filter_result, changed: false, options,
-                label, subText, newEvents: [],
+                label, subText, newEvents: [], storedEvents: events,
                 query_info: {db_queried_at, req_sent_at: getTimeSec(), received_events: 0}};
             console.log("sending subscription REQ", subText, ...subscription.filters, ", original label", subscription.label,
                 ", req_sent_at", subscription.query_info.req_sent_at)
@@ -218,6 +241,7 @@ export function subscribeAndCacheResults(filters: ExtendedFilter[], callback: (e
     })
     return ()=>{
             if(subscription) {
+                console.timeEnd(subscription.label)
                 unsubscribe(subscription)
                 subscription.callback=null;
             }
