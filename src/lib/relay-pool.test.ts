@@ -26,15 +26,16 @@ test('querying', () => {
       ids: ['d7dd5eb3ab747e16f8d0212d53032ea2a7cadef53837e5a6c66d42849fcb9027']
     }
   ], relayurls)
-  sub.onevent((event, afterEose) => {
+  sub.onevent((event, afterEose, url) => {
     expect(event).toHaveProperty(
       'id',
       'd7dd5eb3ab747e16f8d0212d53032ea2a7cadef53837e5a6c66d42849fcb9027'
     )
     expect(afterEose).toBe(false)
+    expect(url).toBe(relayurls[0])
     resolve1(true)
   })
-  sub.oneose((events) => {
+  sub.oneose((events, url) => {
     expect(events).toHaveLength(1)
     if (events && events.length > 0) {
       expect(events[0]).toHaveProperty(
@@ -42,6 +43,7 @@ test('querying', () => {
         'd7dd5eb3ab747e16f8d0212d53032ea2a7cadef53837e5a6c66d42849fcb9027'
       )
     }
+    expect(url).toBe(relayurls[0])
     resolve2(true)
   })
 
