@@ -90,7 +90,6 @@ export let allRelays=[
 // relays ="wss://nostr.bongbong.com",  // fast
 // relays = "wss://relay.damus.io"
 // relays = "wss://nostr.fmt.wiz.biz"
-// relays = normalizeRelayURL( relays );
 let relays=["wss://relay.damus.io", "wss://nostr.fmt.wiz.biz", "wss://nostr.bongbong.com",
 "wss://nostr-2.zebedee.cloud",
     "wss://nostr.zaprite.io",
