@@ -91,8 +91,11 @@ export let allRelays=[
 // relays ="wss://nostr.bongbong.com",  // fast
 // relays = "wss://relay.damus.io"
 // relays = "wss://nostr.fmt.wiz.biz"
-let relays=["wss://relay.damus.io", "wss://nostr.fmt.wiz.biz", "wss://nostr.bongbong.com",
-"wss://nostr-2.zebedee.cloud",
+export let relays=[
+    "wss://relay.damus.io",
+    "wss://nostr.fmt.wiz.biz",
+    "wss://nostr.bongbong.com",
+    "wss://nostr-2.zebedee.cloud",
     "wss://nostr.zaprite.io",
     "wss://relay.nostr.ch",
     "wss://nostr.delo.software",
@@ -100,7 +103,6 @@ let relays=["wss://relay.damus.io", "wss://nostr.fmt.wiz.biz", "wss://nostr.bong
     "wss://nostr.oxtr.dev",
     "wss://nostr-relay.wlvs.space",
     "wss://nostr-pub.wellorder.net",
-    "wss://nostr-relay.wlvs.space"
    ]
 const relayPool = new RelayPool([])
 relayPool.onerror = (err) => {
@@ -188,7 +190,6 @@ function subscribe(subscription:Subscription) {
     subscription.sub=sub
 
     sub.onevent((event: Event & {id: string}, afterEose: boolean) => {
-        console.log("event", subscription.subText, event)
         eventReceived(subscription, event, afterEose)
     })
     sub.oneose((events, url) => {
@@ -253,4 +254,14 @@ export function subscribeAndCacheResults(filters: ExtendedFilter[], callback: (e
                 subscription.callback=null;
             }
     }
+}
+
+export function subdebug(filters: Filter[], relay: string) {
+    let sub = relayPool.sub(filters, [relay])
+    console.time("subdebug")
+    sub.oneose((events)=>{
+        console.timeLog("subdebug ", filters, events)
+        console.timeEnd("subdebug")
+        sub.unsub()
+    })
 }

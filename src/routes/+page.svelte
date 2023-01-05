@@ -8,10 +8,12 @@
 	import {publishedStore, receivedStore, publishedProfilesStore, publishedProfilesByPubKeyStore,
 		contactsStore, eventsFromFollowedStore, subscribeAndCacheResultsStore,
 		repliesFilter,
-		repliesStore, getEvents} from '$lib/svelte-nostr-stores'
+		repliesStore, getEvents, groupByTag} from '$lib/svelte-nostr-stores'
 	import { Kind } from 'nostr-tools';
-	import {mapBy} from '$lib/collection-helpers'
+	import {groupBy, mapBy} from '$lib/collection-helpers'
 	import { simplifiedFilter } from '$lib/get-filters-to-request';
+	import { sortByCreatedAt } from '$lib/helpers';
+	import { relays, subdebug } from '$lib/subscription';
 	export let data;
 
 	let pubKey = data.pubkey;
@@ -31,21 +33,31 @@
 	$: published_profiles=$events.filter(e => e.kind==Kind.Metadata)
 	$: contacts=data.followed  // make it reactive
 	$: publishedProfilesByPubKey=mapBy(published_profiles, item=>item.pubkey)
+	$: eventsByEventRef=groupByTag($events, "e")
 	let viewauthor;
-	let page="posts"
+	let page="posts_replies"
+	window.mapBy=mapBy
+	window.timeit=(cb)=>{console.time("timeit"); let r=cb(); console.timeEnd("timeit"); return r}
 
 	// Debug
-	$: document.publishedProfilesByPubKey=publishedProfilesByPubKey
+	$: window.publishedProfilesByPubKey=publishedProfilesByPubKey
 	document.subscribeAndCacheResultsStore=subscribeAndCacheResultsStore
 	document.getEventsByFilters=getEventsByFilters
-	$: document.received=received
-	$: pageEvents = (viewauthor) ? $events.filter((event)=>event.author==viewauthor) : $events
-	$: document.pageEvents=pageEvents
-	document.repliesFilter=repliesFilter
+	$: window.received=received
+	$: pageEvents = (viewauthor) ? $events.filter((event)=>event.pubkey==viewauthor) :
+		$events.filter((event)=>(event.pubkey==pubKey || followed.includes(event.pubkey)))
+	// $: pageEvents = (viewauthor) ? $events.filter((event)=>event.author==viewauthor) : $events
+	$: window.pageEvents=pageEvents
+	window.repliesFilter=repliesFilter
 	// $: replies = repliesStore(pageEvents)
 	// $: document.rstore=replies
 	// $: document.replies = $replies
 	$: document.data=data
+	window.sortByCreatedAt = sortByCreatedAt
+	window.groupByTag=groupByTag
+	$: window.eventsByEventRef=eventsByEventRef
+	window.subdebug = subdebug
+	window.relays = relays
 </script>
 
 <svelte:head>
@@ -74,6 +86,7 @@
 		<span style:display={(page=="posts_replies") ? "block" : "none"}>
 			<PublicNotes events={pageEvents}
 				profilesByPubKey={publishedProfilesByPubKey}
+				eventsByEventRef={eventsByEventRef}
 				on:viewauthor={(e)=>{viewauthor=e.detail; page="posts_replies"}} />
 		</span>
 		{#if data.private_key} <!-- TODO: use window.nostr encode / decode instead if the private key doesn't exist -->

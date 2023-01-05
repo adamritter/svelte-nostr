@@ -15,6 +15,7 @@
     export let events;
     export let profilesByPubKey;
     export let only_posts=false;
+    export let eventsByEventRef
     
     function only_post_filter(event) {
         return event.kind === Kind.Text && (only_posts ? (event.tags.every(tag => tag[0] !== "e")) : true);
@@ -48,6 +49,16 @@
                 <Profile data={profilesByPubKey[tag[1]]} pubkey={tag[1]} /> 
             {/if}
             {/each}
+            {#if eventsByEventRef && eventsByEventRef.get(publicNote.id)}
+                <br><br>Replies:<br/>
+                {#each eventsByEventRef.get(publicNote.id) as repliedTo}
+                <br>
+                <Profile data={profilesByPubKey[repliedTo.pubkey]} pubkey={repliedTo.pubkey} />
+                &nbsp;{timeAgo.format(repliedTo.created_at*1000, 'twitter')}<br>
+                   <span style="padding-left: 3em"> {@html embedMedia(repliedTo.content)}</span>
+                    <br><br>
+                {/each}
+            {/if}
         </span>
     </span>
 {/each}

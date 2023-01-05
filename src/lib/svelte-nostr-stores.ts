@@ -122,3 +122,18 @@ export let getEvents=(pubkey: string, followed: string[], options?:Options)=>sub
     {"authors": followed, "kinds": [Kind.Metadata]},
 ], options)
 
+
+
+export function groupByTag(events:Event[], tag:string) {
+    let r:Map<string,Event[]>=new Map();
+    for(let event of events) {
+        for (let tagstr of event.tags) {
+            if(tagstr[0]==tag) {
+                let id=tagstr[1];
+                let a=r.get(id)
+                r.set(id, a || [event])
+            }
+        }
+    }
+    return r
+}

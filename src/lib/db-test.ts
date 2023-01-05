@@ -9,7 +9,7 @@ beforeEach(async () => {
 });
 
 test("putEvents", async () => {
-    let events:Event[] = [
+    let events:(Event&{id:string})[] = [
         {id: "id1", pubkey: "pub1", tags: [["#p", "p1"], ["#e", "e1"]], kind:0,
             created_at: 1, content: "HW"},
         {id: "id2", pubkey: "pub2", tags: [["#p", "p1"], ["#e", "e1"]], kind:0,
@@ -23,7 +23,7 @@ test("putEvents", async () => {
 
 
 test("1author 1kind", async () => {
-    let events:Event[] = [
+    let events:(Event&{id:string})[] = [
         {id: "id1", pubkey: "pub1", tags: [["#p", "p1"], ["#e", "e1"]], kind:0,
             created_at: 1, content: "HW"},
         ];
@@ -35,7 +35,7 @@ test("1author 1kind", async () => {
 
 
 test("multiple authors with kinds", async () => {
-    let events:Event[] = [
+    let events:(Event&{id:string})[] = [
         {id: "id1", pubkey: "pub1", tags: [["#p", "p1"], ["#e", "e1"]], kind:0,
             created_at: 1, content: "HW"},
         {id: "id2", pubkey: "pub2", tags: [["#p", "p1"], ["#e", "e1"]], kind:0,
@@ -50,7 +50,7 @@ test("multiple authors with kinds", async () => {
 
 
 test("reverse filter order", async () => {
-    let events:Event[] = [
+    let events:(Event&{id:string})[] = [
         {id: "id1", pubkey: "pub1", tags: [["#p", "p1"], ["#e", "e1"]], kind:0,
             created_at: 1, content: "HW"},
         {id: "id2", pubkey: "pub2", tags: [["#p", "p1"], ["#e", "e1"]], kind:0,

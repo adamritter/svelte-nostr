@@ -1,4 +1,4 @@
-import type { Event, Filter } from "nostr-tools";
+import { matchFilter, type Event, type Filter } from "nostr-tools";
 import type { IEvent, QueryInfo } from "./db-ievent";
 import {stringify} from "safe-stable-stringify"
 
@@ -16,7 +16,7 @@ import {stringify} from "safe-stable-stringify"
  * @param {*} query_info 
  * @returns 
  */
- export function getEventsToPut(filters:Filter[], events: Event[], batchSize:number=30, query_info:QueryInfo|null=null) : IEvent[] {
+ export function getEventsToPut(filters:Filter[], events: (Event & {id:string})[], batchSize:number=30, query_info:QueryInfo|null=null) : IEvent[] {
     let toPutArray:IEvent[]=[];
     for(let filter of filters) {
         filter={...filter}
@@ -29,7 +29,9 @@ import {stringify} from "safe-stable-stringify"
             toPut.set(stringify(f), []);
         }
         for (let event of events) {
-            splitAndAddToPut(toPut, filter, event)
+            if(matchFilter(filter, event)) {
+                splitAndAddToPut(toPut, filter, event)
+            }
         }
         for(let [filter, events] of toPut) {
             addBatchedQueries(toPutArray, filter, events, batchSize, query_info);
