@@ -1,5 +1,6 @@
 import type { Event, Filter } from "nostr-tools";
 import type { IEvent, QueryInfo } from "./db-ievent";
+import {stringify} from "safe-stable-stringify"
 
 /**
  * After getting back events from the server, we need to split them up
@@ -25,7 +26,7 @@ import type { IEvent, QueryInfo } from "./db-ievent";
         let toPut:Map<string,Event[]> = new Map();
         // Needed filter splitting for writing query_info for empty filter results as well.
         for(let f of splitFilter(filter)) {
-            toPut.set(JSON.stringify(f), []);
+            toPut.set(stringify(f), []);
         }
         for (let event of events) {
             splitAndAddToPut(toPut, filter, event)
@@ -68,7 +69,7 @@ function addToPutBy(toPut:Map<string, Array<Event>>, filter:Filter, key:"authors
 }
 
 function addToPut(toPut:Map<string, Array<Event>>, filter:Filter, event:Event) {
-    let jsonFilter=JSON.stringify(filter)
+    let jsonFilter=stringify(filter)
     let events=toPut.get(jsonFilter);
     if(events) {
         events.push(event);

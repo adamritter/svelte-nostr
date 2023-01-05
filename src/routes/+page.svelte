@@ -11,11 +11,20 @@
 		repliesStore, getEvents} from '$lib/svelte-nostr-stores'
 	import { Kind } from 'nostr-tools';
 	import {mapBy} from '$lib/collection-helpers'
+	import { simplifiedFilter } from '$lib/get-filters-to-request';
 	export let data;
 
 	let pubKey = data.pubkey;
 	console.log("pub key:", pubKey)
-	let events=getEvents(pubKey, data.followed)
+	let events=getEvents(pubKey, data.followed, {offline: true})
+	window.getEventsOnline=()=> {
+		events=getEvents(pubKey, data.followed)
+	}
+	window.getEventsByFilters=getEventsByFilters
+	window.simplifiedFilter=simplifiedFilter;
+	$: window.events=$events
+	$: window.followed = data.followed
+	$: window.pubkey = pubKey
 	$: published=$events.filter(e => e.author==pubKey)
 	$: received=$events.filter(e => e.tags.filter(t => t[0]=="p" && t[1]==pubKey).length>0)
 	$: kinds=published.map(author => author.kind)

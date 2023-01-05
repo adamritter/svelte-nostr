@@ -8,6 +8,7 @@ import type { ExtendedFilter, Options } from './get-filters-to-request';
 export function subscribeAndCacheResultsStore(filters: ExtendedFilter[], options?: Options) 
     : Readable<Event[]>
 {
+    console.log("subscribeAndCacheResultsStore", options)
     return readable([], function start(set: (events: Event[]) => void) {
         return subscribeAndCacheResults(filters, set, options)
     });
@@ -98,9 +99,9 @@ export function localStorageStore(key: any, defaultValue=null) {
 // Profile states: "extension" | "pubkey_extesion" | "pubkey" | "private_key"
 export let profileStateLocalStore=()=>localStorageStore("nostr_profile_state")
 
-export async function getFollowed(pubkey: string) {
+export async function getFollowed(pubkey: string, options: Options={}) {
     let subscription=subscribeAndCacheResultsStore([
-        {"kinds": [Kind.Contacts], "authors": [pubkey]}], {onlyOne: true})
+        {"kinds": [Kind.Contacts], "authors": [pubkey]}], {onlyOne: true, ...options})
     return new Promise((resolve, reject)=>{
         subscription.subscribe((events)=>{
             if(events.length > 0) {
@@ -110,7 +111,7 @@ export async function getFollowed(pubkey: string) {
     })
 }
 
-export let getEvents=(pubkey: string, followed: string[])=>subscribeAndCacheResultsStore([
+export let getEvents=(pubkey: string, followed: string[], options?:Options)=>subscribeAndCacheResultsStore([
     {"authors": [pubkey], limit: 200},
     {"#p": [pubkey], limit: 200},
     {"authors": [pubkey], "kinds": [Kind.Contacts]},
@@ -119,5 +120,5 @@ export let getEvents=(pubkey: string, followed: string[])=>subscribeAndCacheResu
     {"#p": followed, limit: 50},
     {"authors": followed, "kinds": [Kind.Contacts]},
     {"authors": followed, "kinds": [Kind.Metadata]},
-])
+], options)
 

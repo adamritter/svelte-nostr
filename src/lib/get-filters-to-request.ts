@@ -1,8 +1,10 @@
 import type { Filter, Event } from "nostr-tools";
 import { groupBy, mapValues } from "./collection-helpers";
 import type { IEvent, QueryInfo } from "./db-ievent";
+import { stringify } from "safe-stable-stringify";
 export type Options={
     onlyOne?: boolean,
+    offline?: boolean,
 }
 
 const requestOnlyNewData=true;
@@ -24,7 +26,7 @@ function filterOnlyOne(events:Event[], filter:ExtendedFilter) {
             return null;
         }
     } else {
-        throw new Error("onlyOne option not supported for this filter" + JSON.stringify(filter))
+        throw new Error("onlyOne option not supported for this filter" + stringify(filter))
     }
     return filter
 }

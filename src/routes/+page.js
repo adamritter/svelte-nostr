@@ -10,7 +10,7 @@ export async function load() {
     let followed=null;
     if(pubkey) {
         let {getFollowed}=await import('../lib/svelte-nostr-stores')
-        followed=await getFollowed(pubkey)
+        followed=await getFollowed(pubkey, {offline: false})
     }
     return {pubkey, followed, private_key: readPrivateKey()};
 }

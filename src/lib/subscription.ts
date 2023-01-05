@@ -5,6 +5,7 @@ import type { QueryInfo } from './db-ievent';
 import { getEventsByFilters, putEvents } from './db';
 import { getFiltersToRequest, type Options, type ExtendedFilter, simplifiedFilter } from './get-filters-to-request';
 import { RelayPool, RelayPoolSubscription } from 'nostr-relaypool'
+import { stringify } from "safe-stable-stringify";
 
 type Subscription={
     events: Event[],
@@ -98,8 +99,10 @@ let relays=["wss://relay.damus.io", "wss://nostr.fmt.wiz.biz", "wss://nostr.bong
     "wss://nostr.nodeofsven.com",
     "wss://nostr.oxtr.dev",
     "wss://nostr-relay.wlvs.space",
+    "wss://nostr-pub.wellorder.net",
+    "wss://nostr-relay.wlvs.space"
    ]
-const relayPool = new RelayPool(relays)
+const relayPool = new RelayPool([])
 relayPool.onerror = (err) => {
     console.log("RelayPool error", err);
 }
@@ -125,13 +128,15 @@ function eoseReceived(subscription:Subscription, events: (Event& {id: string})[]
     subscription.query_info.eose_received_at=getTimeSec()
     subscription.query_info.total_events=subscription.events.length
     subscription.query_info.new_events=events.length; // subscription.newEvents.length
-    let newEvents=events.filter((event) => !containsId(subscription.events, event.id))
+    let newEvents=events.filter((event) => !containsId(subscription.storedEvents, event.id))
     
 
     console.timeLog(subscription.label, "EOSE with "+events.length+
-        " events, from that "+events.length+" new, total events: ", subscription.events.length);
+        " events, from that "+newEvents.length+" not stored yet, total events seen: ", subscription.events.length,
+        ", total events stored: ", subscription.storedEvents.length, ", query_info: ", subscription.query_info);
     console.log("Writing query info", subscription.query_info)
     putEvents(subscription.filters, newEvents, undefined, subscription.query_info)
+    subscription.storedEvents = subscription.storedEvents.concat(newEvents)
     if(subscription.changed && subscription.callback) {
         subscription.callback(subscription.events);
     }
@@ -212,7 +217,7 @@ const matchImpossible=(filter:ExtendedFilter)=>(filter.ids && filter.ids.length 
   autoClose: close subscription after first result
  */
 export function subscribeAndCacheResults(filters: ExtendedFilter[], callback: (events: Event[])=>void, options:Options={}) {
-    let label=JSON.stringify(filters);
+    let label=stringify(filters);
     console.time(label);
     let subText="sub"+subscriptionId
     subscriptionId=subscriptionId+1
@@ -223,6 +228,11 @@ export function subscribeAndCacheResults(filters: ExtendedFilter[], callback: (e
         let num_events=events.length;
         if(events.length) {
             callback(events)
+        }
+        if(options.offline) {
+            console.timeLog(label, "offline mode, no subscription", events, query_infos);
+            console.timeEnd();
+            return;
         }
         let filter_result=getFiltersToRequest(label, filters, options, events, query_infos)
         console.timeLog(label, `got ${num_events} indexedDB events for filter, query_infos`, query_infos,

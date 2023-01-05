@@ -4,6 +4,8 @@ import { getEventsToPut } from './db-events-to-put';
 import type { Event, Filter } from 'nostr-tools';
 import type { IEvent, QueryInfo } from './db-ievent';
 import type { WhereClause } from 'dexie';
+import { stringify } from "safe-stable-stringify";
+
 
 export class EventsDB extends Dexie {
     events!: Dexie.Table<IEvent>;
@@ -24,12 +26,12 @@ function splitWhereCaluseBy(filter:Filter, key:"authors"|"ids"|"#p"|"#e"|null,
         if(filter[key] && filter[key].length > 1) {
             return whereClause.anyOf(
                 // @ts-ignore
-                filter[key].map(p => JSON.stringify({...filter, [key]: [p]})));
+                filter[key].map(p => stringify({...filter, [key]: [p]})));
         } else {
             return null;
         }
     } else {
-        return whereClause.equals(JSON.stringify(filter));
+        return whereClause.equals(stringify(filter));
     }
 }
 
@@ -49,6 +51,10 @@ export function putEvents(filters: Filter[], events: Event[], batchSize:number=3
     console.log("putEvents called with ", events.length, " events")
     let toPutArray=getEventsToPut(filters, events, batchSize, query_info);
     return db.events.bulkPut(toPutArray)
+}
+
+export function clearAllEvents() {
+    return db.events.clear();
 }
 
 export function getEventsByFilters(filters: Filter[]):
