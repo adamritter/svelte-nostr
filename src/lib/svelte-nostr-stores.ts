@@ -114,12 +114,9 @@ export async function getFollowed(pubkey: string, options: Options={}) {
 export let getEvents=(pubkey: string, followed: string[], options?:Options)=>subscribeAndCacheResultsStore([
     {"authors": [pubkey], limit: 200},
     {"#p": [pubkey], limit: 200},
-    {"authors": [pubkey], "kinds": [Kind.Contacts]},
-    {"authors": [pubkey], "kinds": [Kind.Metadata]},
-    {"authors": followed, limit: 50},
-    {"#p": followed, limit: 50},
-    {"authors": followed, "kinds": [Kind.Contacts]},
-    {"authors": followed, "kinds": [Kind.Metadata]},
+    {"authors": followed.concat([pubkey]), "kinds": [Kind.Contacts, Kind.Metadata]},
+    {"authors": followed, limit: 1000},
+    {"#p": followed, limit: 1000},
 ], options)
 
 

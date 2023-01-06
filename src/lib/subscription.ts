@@ -156,9 +156,9 @@ function newEventReceived(subscription:Subscription, event:Event & {id:string}, 
     if (afterEose) {
         storeEvent=true;
         
-        console.time("callback")
+        // console.time("callback")
         subscription.callback(subscription.events);
-        console.timeEnd("callback")
+        // console.timeEnd("callback")
     } else {
         if(!putAtEnd) {
              storeEvent=true;
@@ -183,6 +183,7 @@ function eventReceived(subscription:Subscription, event:Event & {id:string}, aft
 relayPool.ondisconnect((msg: string) => {
     console.log("relay disconnected", msg)
 });
+
 
 function subscribe(subscription:Subscription) {
     console.log("relay.sub", subscription.subText,  ...subscription.filters)
@@ -256,12 +257,10 @@ export function subscribeAndCacheResults(filters: ExtendedFilter[], callback: (e
     }
 }
 
-export function subdebug(filters: Filter[], relay: string) {
-    let sub = relayPool.sub(filters, [relay])
-    console.time("subdebug")
-    sub.oneose((events)=>{
-        console.timeLog("subdebug ", filters, events)
-        console.timeEnd("subdebug")
-        sub.unsub()
+export function subdebug(filters: Filter[], relays: string[]) {
+    let sub = relayPool.sub(filters, relays)
+    let time=Date.now()
+    sub.oneose((events, url)=>{
+        console.log("subdebug", url, Date.now()-time, "ms",  filters, events)
     })
 }

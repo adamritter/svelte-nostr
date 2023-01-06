@@ -58,28 +58,58 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
             }
             filter=filterOptional
         }
+        const group_time=3600  // Group queries that have at most 1 hour difference
         
         // Split by authors
         if(filter.authors && !filter.retrieve_old) {
-            console.log("splitting by authors", filter.authors)
-            console.log("events", events)
             let events_by_author=groupBy(events, (event)=>event.pubkey);
             let last_created_at_by_author = mapValues(events_by_author, (events)=>Math.max(...events.map((event)=>event.created_at)))
-            console.log("last_created_at_by_author", last_created_at_by_author)
+           
             let rest=[]
+            let reply_filter_by_last_req_sent_at=new Map<number, Filter>()
             for(let author of filter.authors) {
+                author=selfOrFirst(author)
                 let last_created_at=last_created_at_by_author.get(selfOrFirst(author))
+                for (let query_info_with_filter of query_infos) {
+                    let query_info=query_info_with_filter.query_info;
+                    if (query_info.req_sent_at && (!last_created_at || (query_info.req_sent_at > last_created_at))) {
+                        if (query_info_with_filter.filter == stringify({...filter, authors:[author], limit: undefined})) {
+                            last_created_at=query_info.req_sent_at;
+                        }
+                    }
+                }
                 if(last_created_at==undefined) {
                     rest.push(author)
+                } else if(reply_filter_by_last_req_sent_at.get(Math.round(last_created_at/group_time))) {
+                    // @ts-ignore
+                    let new_filter = reply_filter_by_last_req_sent_at.get(Math.round(last_created_at/group_time))
+                    if (!new_filter || !new_filter.authors) {
+                        throw new Error("new_filter or authors is undefined")
+                    }
+                    if (new_filter.since && new_filter.since > last_created_at+1) {
+                        new_filter.since=last_created_at+1;
+                    }
+                    new_filter.authors.push(author)
+                    if (filter.limit) {
+                        new_filter.limit=Math.round((new_filter.authors.length)*filter.limit/filter.authors.length)
+                    }
                 } else {
                     let new_filter={...filter}
                     new_filter.authors=[author]
                     new_filter.since=last_created_at+1;
-                    reply_filters.push(simplifiedFilter(new_filter))
+                    if (new_filter.limit) {
+                        new_filter.limit=Math.round(new_filter.limit/filter.authors.length)
+                    }
+                    let reply_filter=simplifiedFilter(new_filter)
+                    reply_filters.push(reply_filter)
+                    reply_filter_by_last_req_sent_at.set(Math.round(last_created_at/group_time), reply_filter)
                 }
             }
             if (rest.length == 0) {
                 continue;
+            }
+            if (filter.limit) {
+                filter.limit=Math.round(filter.limit*rest.length/filter.authors.length)
             }
             filter.authors=rest;
         }
@@ -92,29 +122,68 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
             }
             // @ts-ignore
             let tags:string[]=filter[tag_key];
-            console.log("Splitting by tag", tag_key, tags);
             let rest=[]
+            let reply_filter_by_last_req_sent_at=new Map<number, Filter>()
             for(let tag of tags) {
                 let tag_type=tag_key.slice(1)
-                let last_created_at=Math.max(...events.filter(
+                let last_created_at:number|undefined=Math.max(...events.filter(
                     (event)=>event.tags.find((etag)=>etag[0]==tag_type && etag[1]==tag)).map((event)=>event.created_at))
-                console.log("last_created_at", last_created_at, tag_type, tag)
+                if (last_created_at == -Infinity) {
+                    last_created_at=undefined;
+                }
+                let new_filter={...filter}
+                // @ts-ignore
+                new_filter[tag_key]=[tag]
+                new_filter.limit=undefined
+
+                for (let query_info_with_filter of query_infos) {
+                    let query_info=query_info_with_filter.query_info;
+                    if (query_info.req_sent_at && (!last_created_at || (query_info.req_sent_at > last_created_at))) {
+                        if (query_info_with_filter.filter == stringify(new_filter)) {
+                            last_created_at=query_info.req_sent_at;
+                        }
+                    }
+                }
+
                 if(last_created_at==undefined) {
                     rest.push(tag)
+                } else if(reply_filter_by_last_req_sent_at.get(Math.round(last_created_at/group_time))) {
+                    // @ts-ignore
+                    let new_filter = reply_filter_by_last_req_sent_at.get(Math.round(last_created_at/group_time))
+                    // @ts-ignore
+                    if (!new_filter || !new_filter[tag_key]) {
+                        throw new Error("new_filter or authors is undefined")
+                    }
+                    if (new_filter.since && new_filter.since > last_created_at+1) {
+                        new_filter.since=last_created_at+1;
+                    }
+                    // @ts-ignore
+                    new_filter[tag_key].push(tag)
+                    if (filter.limit) {
+                        // @ts-ignore
+                        new_filter.limit=Math.round((new_filter[tag_key].length)*filter.limit/filter[tag_key].length)
+                    }
                 } else {
                     let new_filter={...filter}
                     // @ts-ignore
                     new_filter[tag_key]=[tag]
                     new_filter.since=last_created_at+1;
-                    reply_filters.push(simplifiedFilter(new_filter))
+                    let reply_filter = simplifiedFilter(new_filter)
+                    reply_filters.push(reply_filter)
+                    reply_filter_by_last_req_sent_at.set(Math.round(last_created_at/group_time), reply_filter)
                 }
             }
             if (rest.length == 0) {
                 skip_final=true;
                 break;
             }
+            if (filter.limit) {
+                // @ts-ignore
+                filter.limit=Math.round(filter.limit*rest.length/filter[tag_key].length)
+            }
             // @ts-ignore
             filter[tag_key]=rest;
+            
         }
         if (!skip_final) {
             reply_filters.push(simplifiedFilter(filter))
