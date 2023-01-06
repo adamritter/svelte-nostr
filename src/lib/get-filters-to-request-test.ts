@@ -141,3 +141,20 @@ test("Tag filters with different times", () => {
     let result = getFiltersToRequest("sub", [filter], {}, events, []);
     expect(result).toEqual([{"#p": ["p1"], since: 7201}, {"#p": ["p2"], since: 3601}]);
 });
+
+
+test("Merge filters automatically", () => {
+    let filters:ExtendedFilter[] = [{authors: ["pub1"], kinds: [0, 2]},
+                                     {ids: ["1"]},
+                                     {"#p": ["p1", "p2"]},
+                                     {authors: ["pub2"], kinds: [0, 2]},
+                                     {ids: ["5"]},
+                                     {"#p": ["p2", "p3"]}
+                                    ];
+    let result = getFiltersToRequest("sub", filters, {}, [], []);
+    expect(result).toEqual([
+        {authors: ["pub1", "pub2"], kinds: [0, 2]},
+        {ids: ["1", "5"]},
+        {"#p": ["p1", "p2", "p3"]}
+    ]);
+});
