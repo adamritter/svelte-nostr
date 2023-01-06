@@ -5,6 +5,7 @@ import { stringify } from "safe-stable-stringify";
 export type Options={
     onlyOne?: boolean,
     offline?: boolean,
+    dbread?: ()=>void
 }
 
 const requestOnlyNewData=true;

@@ -14,11 +14,13 @@
 	import { simplifiedFilter } from '$lib/get-filters-to-request';
 	import { sortByCreatedAt } from '$lib/helpers';
 	import { relays, subdebug } from '$lib/subscription';
+	import { tick } from 'svelte';
 	export let data;
+	let events = getEvents(data.pubkey, data.followed, {offline: true})
+
 
 	let pubKey = data.pubkey;
 	console.log("pub key:", pubKey)
-	let events=getEvents(pubKey, data.followed, {offline: true})
 	window.getEventsOnline=()=> {
 		events=getEvents(pubKey, data.followed)
 	}
@@ -34,19 +36,38 @@
 	$: contacts=data.followed  // make it reactive
 	$: publishedProfilesByPubKey=mapBy(published_profiles, item=>item.pubkey)
 	$: eventsByEventRef=groupByTag($events, "e")
-	let viewauthor;
-	let page="posts_replies"
+	let pageInfo={page: "posts_replies", viewauthor: null}
 	window.mapBy=mapBy
 	window.timeit=(cb)=>{console.time("timeit"); let r=cb(); console.timeEnd("timeit"); return r}
+	let startTime=Date.now()
 
 	// Debug
 	$: window.publishedProfilesByPubKey=publishedProfilesByPubKey
 	document.subscribeAndCacheResultsStore=subscribeAndCacheResultsStore
 	document.getEventsByFilters=getEventsByFilters
 	$: window.received=received
-	$: pageEvents = (viewauthor) ? $events.filter((event)=>event.pubkey==viewauthor) :
+	$: pageEventsFinal = (pageInfo.viewauthor) ? $events.filter((event)=>event.pubkey==pageInfo.viewauthor) :
 		$events.filter((event)=>(event.pubkey==pubKey || followed.includes(event.pubkey)))
-	// $: pageEvents = (viewauthor) ? $events.filter((event)=>event.author==viewauthor) : $events
+	let rendered = false;
+
+    function only_post_filter(event) {
+        return event.kind === Kind.Text && (pageInfo.page=="posts" ? (event.tags.every(tag => tag[0] !== "e")) : true);
+    }
+	function pageEventsFromFinal(final) {
+		if (rendered) return final;
+		let filtered = final.filter(only_post_filter)
+		let r = sortByCreatedAt(filtered).slice(0, 10);
+		if(filtered.length >= 10) {
+			console.log(Date.now()-startTime, filtered.length, r.length)
+			setTimeout(()=> {
+				rendered = true;
+				pageEvents = pageEventsFinal;
+				console.log(Date.now()-startTime, filtered.length)
+			}, 100)
+		}
+		return r
+	}
+	$: pageEvents = pageEventsFromFinal(pageEventsFinal)
 	$: window.pageEvents=pageEvents
 	window.repliesFilter=repliesFilter
 	// $: replies = repliesStore(pageEvents)
@@ -65,42 +86,44 @@
 	<meta name="description" content="Svelte demo app" />
 </svelte:head>
 
+{#if $events.length>0}
 
 <section>
-	<a href="" on:click={()=>{page="posts"; viewauthor=null}}><b>Posts</b></a>
-	<a href="" on:click={()=>{page="posts_replies"; viewauthor=null}}><b>Posts and replies</b></a>
-	<a href="" on:click={()=>page="contacts"}><b>Contacts</b></a>
-	<a href="" on:click={()=>page="dms"}><b>DMs</b></a>
+	<a href="" on:click={()=>{startTime=Date.now(); rendered = false; pageInfo={page: "posts", viewauthor: null}}}><b>Posts</b></a>
+	<a href="" on:click={()=>{startTime=Date.now(); rendered = false; pageInfo={page: "posts_replies", viewauthor: null} }}><b>Posts and replies</b></a>
+	<a href="" on:click={()=>pageInfo.page="contacts"}><b>Contacts</b></a>
+	<a href="" on:click={()=>pageInfo.page="dms"}><b>DMs</b></a>
 
 	<!--  5: event deletion, 6???, 7: reaction-->
 	<span>
 	<Photo data={publishedProfilesByPubKey[pubKey]}
-		on:click={()=>viewauthor=pubKey} />
+		on:click={()=>{rendered=false;pageInfo={viewauthor: pubKey, page: "posts_replies"}}} />
 	<Profile data={publishedProfilesByPubKey[pubKey]} pubkey={pubKey} />
 	</span>
 	<span style="display: flex; gap: 20px; flex-direction: row">
-		<span style:display={(page=="posts") ? "block" : "none"}>
+		<span style:display={(pageInfo.page=="posts") ? "block" : "none"}>
 			<PublicNotes only_posts=true events={pageEvents}
 				profilesByPubKey={publishedProfilesByPubKey}
-				on:viewauthor={(e)=>{viewauthor=e.detail; page="posts_replies"}}/></span>
-		<span style:display={(page=="posts_replies") ? "block" : "none"}>
+				on:viewauthor={(e)=>{rendered=false;pageInfo={viewauthor: e.detail, page: "posts_replies"}}}/></span>
+		<span style:display={(pageInfo.page=="posts_replies") ? "block" : "none"}>
 			<PublicNotes events={pageEvents}
 				profilesByPubKey={publishedProfilesByPubKey}
 				eventsByEventRef={eventsByEventRef}
-				on:viewauthor={(e)=>{viewauthor=e.detail; page="posts_replies"}} />
+				on:viewauthor={(e)=>{rendered=false;pageInfo={viewauthor: e.detail, page: "posts_replies"}}} />
 		</span>
 		{#if data.private_key} <!-- TODO: use window.nostr encode / decode instead if the private key doesn't exist -->
-		<span style:display={(page=="dms") ? "block" : "none"}><DMs events={events} privKey={data.private_key} pubKey={pubKey} profilesByPubKey={publishedProfilesByPubKey} /></span>
+		<span style:display={(pageInfo.page=="dms") ? "block" : "none"}><DMs events={events} privKey={data.private_key} pubKey={pubKey} profilesByPubKey={publishedProfilesByPubKey} /></span>
 		{/if}
 		<span style="flex-basis: 500px; display: block">
 			<Contacts contacts={contacts} profilesByPubKey={publishedProfilesByPubKey}
-			on:viewauthor={(e)=>{viewauthor=e.detail; page="posts_replies"}} 
+			on:viewauthor={(e)=>{pageInfo={viewauthor: e.detail, page: "posts_replies"}}} 
 			/>
 		</span>
 	</span>
 	
 	<!-- <h1>Kinds</h1><p>{kinds}</p> -->
 </section>
+{/if}
 
 <style>
 	

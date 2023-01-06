@@ -103,6 +103,8 @@ export let relays=[
     "wss://nostr.oxtr.dev",
     "wss://nostr-relay.wlvs.space",
     "wss://nostr-pub.wellorder.net",
+    "wss:://brb.io",
+    "wss://nostr.v0l.io",
    ]
 const relayPool = new RelayPool([])
 relayPool.onerror = (err) => {
@@ -219,14 +221,16 @@ const matchImpossible=(filter:ExtendedFilter)=>(filter.ids && filter.ids.length 
   autoClose: close subscription after first result
  */
 export function subscribeAndCacheResults(filters: ExtendedFilter[], callback: (events: Event[])=>void, options:Options={}) {
-    let label=stringify(filters);
-    console.time(label);
+    console.log("in subscribe")
     let subText="sub"+subscriptionId
+    let label=subText;
+    console.time(label);
     subscriptionId=subscriptionId+1
     let db_queried_at=getTimeSec();
     let subscription:Subscription|undefined;
     
     getEventsByFilters(filters.map(simplifiedFilter)).then(({events, query_infos})=>{
+        console.log("got events")
         let num_events=events.length;
         if(events.length) {
             callback(events)
@@ -234,10 +238,16 @@ export function subscribeAndCacheResults(filters: ExtendedFilter[], callback: (e
         if(options.offline) {
             console.timeLog(label, "offline mode, no subscription", events, query_infos);
             console.timeEnd();
+            if (options.dbread) {
+                options.dbread()
+            }
             return;
         }
+        if (options.dbread) {
+            options.dbread()
+        }
         let filter_result=getFiltersToRequest(label, filters, options, events, query_infos)
-        console.timeLog(label, `got ${num_events} indexedDB events for filter, query_infos`, query_infos,
+        console.timeLog(label, "filter: ", filters, `got ${num_events} indexedDB events for filter, query_infos`, query_infos,
             "filter_result", filter_result);
         if(filter_result) {
             subscription={events, callback, filters: filter_result, changed: false, options,
