@@ -35,10 +35,10 @@
 {#each publicNotes as publicNote}
     <span style="display: flex; gap: 10px; padding-bottom: 10px; padding-top: 10px ">
         <span style="flex-basis: 60px">
-            <Photo data={profilesByPubKey[publicNote.pubkey]}
+            <Photo data={profilesByPubKey.get(publicNote.pubkey)}
             on:click={()=>dispatch('viewauthor', publicNote.pubkey)} /></span>
         <span style="border-bottom: 1px solid #eee; width: 75vw; overflow: hidden">
-                <Profile data={profilesByPubKey[publicNote.pubkey]} pubkey={publicNote.pubkey} />
+                <Profile data={profilesByPubKey.get(publicNote.pubkey)} pubkey={publicNote.pubkey} />
                 &nbsp;{timeAgo.format(publicNote.created_at*1000, 'twitter')}<br>
             {@html embedMedia(publicNote.content)}
             {#each publicNote.tags as tag}
@@ -46,14 +46,14 @@
                 <a on:click={()=>0}> #{tag[1]} </a>
             {/if}
             {#if tag[0] == "p"}
-                <Profile data={profilesByPubKey[tag[1]]} pubkey={tag[1]} /> 
+                <Profile data={profilesByPubKey.get(tag[1])} pubkey={tag[1]} /> 
             {/if}
             {/each}
             {#if eventsByEventRef && eventsByEventRef.get(publicNote.id)}
                 <br><br>Replies:<br/>
                 {#each eventsByEventRef.get(publicNote.id) as repliedTo}
                 <br>
-                <Profile data={profilesByPubKey[repliedTo.pubkey]} pubkey={repliedTo.pubkey} />
+                <Profile data={profilesByPubKey.get(repliedTo.pubkey)} pubkey={repliedTo.pubkey} />
                 &nbsp;{timeAgo.format(repliedTo.created_at*1000, 'twitter')}<br>
                    <span style="padding-left: 3em"> {@html embedMedia(repliedTo.content)}</span>
                     <br><br>

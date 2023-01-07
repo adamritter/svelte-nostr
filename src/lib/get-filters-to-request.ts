@@ -31,7 +31,7 @@ function filterOnlyOne(events:Event[], filter:ExtendedFilter) {
     }
     return filter
 }
-function mergeSimilarFilters(filters: ExtendedFilter[]) : ExtendedFilter[] {
+export function mergeSimilarFilters(filters: ExtendedFilter[]) : ExtendedFilter[] {
     let r=[]
     let indexByFilter=new Map<string, number>()
     for(let filter of filters) {
@@ -43,7 +43,6 @@ function mergeSimilarFilters(filters: ExtendedFilter[]) : ExtendedFilter[] {
                 // @ts-ignore
                 delete new_filter[key]
                 let index_by=key+stringify(new_filter)
-                console.log("index_by", index_by)
                 let index=indexByFilter.get(index_by)
                 if(index!==undefined) {
                     // @ts-ignore
@@ -73,14 +72,14 @@ function mergeSimilarFilters(filters: ExtendedFilter[]) : ExtendedFilter[] {
     return r
 }
 export function getFiltersToRequest(label: string, filters: ExtendedFilter[], options: Options, events:Event[],
-        query_infos:(IEvent&{query_info:QueryInfo})[]) : Filter[]|undefined {
+        query_infos:(IEvent&{query_info:QueryInfo})[]) : (Filter & {relay?: string})[]|undefined {
     if (neverSend) {
         console.timeLog(label, 'no need to send subscription because neverSend is set');
         console.timeEnd(label);
         return;
     }
     filters=mergeSimilarFilters(filters)
-    let reply_filters:Filter[]=[]
+    let reply_filters:(Filter & {relay?: string})[]=[]
     for(let filter of filters) {
         filter={...filter}
         let onlyOne=options.onlyOne
@@ -90,7 +89,8 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
             console.timeLog(label, 'no need to send subscription because filter is empty');
             continue;
         }
-        if(filter.ids) {
+        if(filter.ids || (filter.authors && filter.kinds && filter.kinds.length==1 &&
+                                (filter.kinds[0] == 0 || filter.kinds[0] == 3))) {
             onlyOne=true;
         }
         if(onlyOne) {
@@ -143,7 +143,7 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
                     if (new_filter.limit) {
                         new_filter.limit=Math.round(new_filter.limit/filter.authors.length)
                     }
-                    let reply_filter=simplifiedFilter(new_filter)
+                    let reply_filter=requestFilter(new_filter)
                     reply_filters.push(reply_filter)
                     reply_filter_by_last_req_sent_at.set(Math.round(last_created_at/group_time), reply_filter)
                 }
@@ -211,7 +211,7 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
                     // @ts-ignore
                     new_filter[tag_key]=[tag]
                     new_filter.since=last_created_at+1;
-                    let reply_filter = simplifiedFilter(new_filter)
+                    let reply_filter = requestFilter(new_filter)
                     reply_filters.push(reply_filter)
                     reply_filter_by_last_req_sent_at.set(Math.round(last_created_at/group_time), reply_filter)
                 }
@@ -229,7 +229,7 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
             
         }
         if (!skip_final) {
-            reply_filters.push(simplifiedFilter(filter))
+            reply_filters.push(requestFilter(filter))
         }
     }
     if(reply_filters.length==0) {
@@ -242,18 +242,24 @@ const getTimeSec=()=>Math.floor(Date.now()/1000);
 
 
 export type ExtendedFilter = {
-    ids?: (string|string[])[]
+    ids?: string[]
     kinds?: number[]
-    authors?: (string|string[])[]
+    authors?: string[]
     since?: number
     until?: number
     limit?: number
     [key: `#${string}`]: (string|string[])[],
-    retrieve_old?: boolean  // For each author / other key, get old data as well, don't look at events in the db.
+    // For each author / other key, get old data as well, don't look at events in the db for setting ,,since'' in filter.
+    // It's not recommended to use this, as looking at query times is efficeint.
+    retrieve_old?: boolean 
+    relay?: string  // relay to use for requesting data. Must be sent to the relaypool, but not to db.
+    // filter key to use for storing data. Used for storing event a post replied to, for example
+    // [{authors:["1234..."]}] even if the pubkey is different.
+    store_filter?: string  
   }
   let selfOrFirst=(a:string|string[])=>(typeof(a)=="string") ? a : a[0]
-  export function simplifiedFilter(extended_filter: ExtendedFilter) : Filter {
-    let filter: Filter = {};
+  export function requestFilter(extended_filter: ExtendedFilter) : (Filter & {relay?: string}) {
+    let filter: Filter & {relay?: string} = {};
     if (extended_filter.ids) {
         filter.ids = extended_filter.ids.map(selfOrFirst)
     }
@@ -272,6 +278,10 @@ export type ExtendedFilter = {
     if (extended_filter.limit) {
         filter.limit = extended_filter.limit
     }
+
+    if (extended_filter.relay) {
+        filter.relay = extended_filter.relay
+    }
     
     for (let key of Object.keys(extended_filter)) {
       if (key.startsWith("#")) {
@@ -281,4 +291,10 @@ export type ExtendedFilter = {
     }
     return filter
   }
+
+  export function dbSimplifiedFilter(extended_filter : ExtendedFilter) : Filter {
+    let filter=requestFilter(extended_filter)
+    delete filter.relay
+    return filter
+}
   

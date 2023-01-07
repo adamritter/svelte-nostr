@@ -8,16 +8,27 @@
 	import {publishedStore, receivedStore, publishedProfilesStore, publishedProfilesByPubKeyStore,
 		contactsStore, eventsFromFollowedStore, subscribeAndCacheResultsStore,
 		repliesFilter,
-		repliesStore, getEvents, groupByTag} from '$lib/svelte-nostr-stores'
+		repliesStore, getEvents, groupByTag, stringifyUnique, filtersFromEventTags} from '$lib/svelte-nostr-stores'
 	import { Kind } from 'nostr-tools';
 	import {groupBy, mapBy} from '$lib/collection-helpers'
-	import { simplifiedFilter } from '$lib/get-filters-to-request';
+	import { mergeSimilarFilters, requestFilter } from '$lib/get-filters-to-request';
 	import { sortByCreatedAt } from '$lib/helpers';
 	import { relays, subdebug } from '$lib/subscription';
 	import { tick } from 'svelte';
+	import {db} from '$lib/db'
+	window.db=db
+
 	export let data;
 	let events = getEvents(data.pubkey, data.followed, {offline: true})
-
+	window.stringifyUnique=stringifyUnique
+	window.filtersFromEventTags=filtersFromEventTags
+	window.mergeSimilarFilters=mergeSimilarFilters
+	let tags=undefined
+	setTimeout(()=> {
+		console.log($events)
+		// tags=subscribeAndCacheResultsStore(mergeSimilarFilters(filtersFromEventTags($events, pubKey, data.followed)))
+	}, 5000)
+	$: window.tags=tags ? $tags : undefined
 
 	let pubKey = data.pubkey;
 	console.log("pub key:", pubKey)
@@ -25,7 +36,7 @@
 		events=getEvents(pubKey, data.followed)
 	}
 	window.getEventsByFilters=getEventsByFilters
-	window.simplifiedFilter=simplifiedFilter;
+	window.requestFilter=requestFilter;
 	$: window.events=$events
 	$: window.followed = data.followed
 	$: window.pubkey = pubKey
@@ -35,10 +46,14 @@
 	$: published_profiles=$events.filter(e => e.kind==Kind.Metadata)
 	$: contacts=data.followed  // make it reactive
 	$: publishedProfilesByPubKey=mapBy(published_profiles, item=>item.pubkey)
+	$: eventsById=mapBy($events, item=>item.id)
+	$: window.eventsById=eventsById
 	$: eventsByEventRef=groupByTag($events, "e")
+	$: window.subscribeAndCacheResultsStore=subscribeAndCacheResultsStore
 	let pageInfo={page: "posts_replies", viewauthor: null}
 	window.mapBy=mapBy
 	window.timeit=(cb)=>{console.time("timeit"); let r=cb(); console.timeEnd("timeit"); return r}
+
 	let startTime=Date.now()
 
 	// Debug
@@ -67,7 +82,7 @@
 		}
 		return r
 	}
-	$: pageEvents = pageEventsFromFinal(pageEventsFinal)
+	$: pageEvents = (pageEventsFromFinal(pageEventsFinal))
 	$: window.pageEvents=pageEvents
 	window.repliesFilter=repliesFilter
 	// $: replies = repliesStore(pageEvents)
@@ -96,9 +111,9 @@
 
 	<!--  5: event deletion, 6???, 7: reaction-->
 	<span>
-	<Photo data={publishedProfilesByPubKey[pubKey]}
+	<Photo data={publishedProfilesByPubKey.get(pubKey)}
 		on:click={()=>{rendered=false;pageInfo={viewauthor: pubKey, page: "posts_replies"}}} />
-	<Profile data={publishedProfilesByPubKey[pubKey]} pubkey={pubKey} />
+	<Profile data={publishedProfilesByPubKey.get(pubKey)} pubkey={pubKey} />
 	</span>
 	<span style="display: flex; gap: 20px; flex-direction: row">
 		<span style:display={(pageInfo.page=="posts") ? "block" : "none"}>

@@ -5,6 +5,7 @@ import type { Event, Filter } from 'nostr-tools';
 import type { IEvent, QueryInfo } from './db-ievent';
 import type { WhereClause } from 'dexie';
 import { stringify } from "safe-stable-stringify";
+import { dbSimplifiedFilter, type ExtendedFilter } from './get-filters-to-request';
 
 
 export class EventsDB extends Dexie {
@@ -17,37 +18,44 @@ export class EventsDB extends Dexie {
     }
   }
   
-const db=new EventsDB();
+export const db=new EventsDB();
 
-function splitWhereCaluseBy(filter:Filter, key:"authors"|"ids"|"#p"|"#e"|null,
-        whereClause:WhereClause<IEvent,any>) : Dexie.Collection<IEvent, number> | null {
+function splitFilterBy(filter:Filter, key:"authors"|"ids"|"#p"|"#e"|null) : string[] | null {
     if (key) {
         // @ts-ignore
         if(filter[key] && filter[key].length > 1) {
-            return whereClause.anyOf(
                 // @ts-ignore
-                filter[key].map(p => stringify({...filter, [key]: [p]})));
+                return filter[key].map(p => stringify({...filter, [key]: [p]}));
         } else {
             return null;
         }
     } else {
-        return whereClause.equals(stringify(filter));
+        return [stringify(filter)];
     }
+    return null;
 }
 
-function splitWhereClause(filter: Filter, whereClause:WhereClause<IEvent,any>) : Dexie.Collection<IEvent, number> {
-    let r = splitWhereCaluseBy(filter, "authors", whereClause) ||
-        splitWhereCaluseBy(filter, "ids", whereClause) ||
-        splitWhereCaluseBy(filter, "#p", whereClause) ||
-        splitWhereCaluseBy(filter, "#e", whereClause) ||
-        splitWhereCaluseBy(filter, null, whereClause);
+function splitFilter(filter: Filter) : string[] {
+    let r = splitFilterBy(filter, "authors") ||
+    splitFilterBy(filter, "ids") ||
+    splitFilterBy(filter, "#p") ||
+    splitFilterBy(filter, "#e") ||
+    splitFilterBy(filter, null);
     if (!r) {
         throw new Error("splitWhereClause bug")
     }
     return r;
 }
 
-export function putEvents(filters: Filter[], events: (Event&{id:string})[], batchSize:number=30, query_info:QueryInfo|null=null) {
+function filterKeysFor(filter: ExtendedFilter) : string[] {
+    if(filter.store_filter) {
+        return [stringify(filter.store_filter)];
+    } else {
+        return splitFilter(dbSimplifiedFilter(filter));
+    }
+}
+
+export function putEvents(filters: (Filter&{relay?: string})[], events: (Event&{id:string})[], batchSize:number=30, query_info:QueryInfo|null=null) {
     console.log("putEvents called with ", events.length, " events")
     let toPutArray=getEventsToPut(filters, events, batchSize, query_info);
     return db.events.bulkPut(toPutArray)
@@ -57,18 +65,20 @@ export function clearAllEvents() {
     return db.events.clear();
 }
 
-export function getEventsByFilters(filters: Filter[]):
+export function getEventsByFilters(filters: ExtendedFilter[]):
         Promise<{events: Event[], query_infos: (IEvent&{query_info:QueryInfo})[] }> {
-    let filtered:Dexie.Collection<IEvent,number>|undefined;
+    let keys: string[][]=[]
     for(let filter of filters) {
-        let whereClause=(filtered) ? filtered.or("filter") : db.events.where("filter")
         filter={...filter}
         delete filter.limit
-        filtered=splitWhereClause(filter, whereClause);
+        delete filter.since
+        delete filter.until
+        delete filter.relay
+        delete filter.retrieve_old
+        console.log("filter keys for ",filter,  filterKeysFor(filter))
+        keys.push(filterKeysFor(filter))
     }
-    if(!filtered) {
-        return new Promise((resolve)=>{return {events: [], query_infos: []}});
-    }
+    let filtered=db.events.where("filter").anyOf(keys.flat())
     return filtered.toArray()
             .then(events => {
                     let flat_events=events.map(event => (event.events ||event.event || [])).flat()

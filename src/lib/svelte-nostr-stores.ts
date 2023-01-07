@@ -3,12 +3,13 @@ import {subscribeAndCacheResults} from './subscription'
 import {unique, mapBy, groupBy} from './collection-helpers'
 import {readable, derived, writable, type Readable} from 'svelte/store'
 import {Kind, type Event, type Filter} from 'nostr-tools'
-import type { ExtendedFilter, Options } from './get-filters-to-request';
+import { mergeSimilarFilters, type ExtendedFilter, type Options } from './get-filters-to-request';
+import stringify from 'safe-stable-stringify';
 
 export function subscribeAndCacheResultsStore(filters: ExtendedFilter[], options?: Options) 
     : Readable<Event[]>
 {
-    console.log("subscribeAndCacheResultsStore", options)
+    console.log("subscribeAndCacheResultsStore", filters, options)
     return readable([], function start(set: (events: Event[]) => void) {
         return subscribeAndCacheResults(filters, set, options)
     });
@@ -133,4 +134,53 @@ export function groupByTag(events:Event[], tag:string) {
         }
     }
     return r
+}
+
+export function stringifyUnique<T>(a: Array<T>): Array<T> {
+    let r: Array<T>=[]
+    let s=new Set()
+    for (let e of a) {
+        let str=JSON.stringify(e)
+        if(!s.has(str)) {
+            s.add(str)
+            r.push(e)
+        }
+    } 
+    return r
+}
+
+// A lot of filters are returned, they must be merged by the storage layer before subscribing
+export function filtersFromEventTags(events: Event[], pubkey: string, followed: string[]): ExtendedFilter[] {
+    // let tags=tagsFromEvents(events, pubkey, followed)
+    let allIds=new Set(events.map((event)=>event.id))
+    let allProfiles=new Set(events.filter((event)=>event.kind==0).map((event)=>event.pubkey))
+    let r: ExtendedFilter[]=[]
+    for (let event of events) {
+        if(event.kind==Kind.Text && (event.pubkey==pubkey || followed.includes(event.pubkey))) {
+            for(let tag of event.tags) {
+                if(tag[0]=="p") {
+                    if (allProfiles.has(tag[1])) {
+                        continue;
+                    }
+                    let filter: ExtendedFilter={"authors": [tag[1]], kinds: [0]}
+                    if (tag[2] && tag[2] != "") {
+                        filter.relay=tag[2]
+                    }
+                    filter.store_filter=stringify({authors: [event.pubkey]})
+                    r.push(filter)
+                } else if(tag[0]=="e") {
+                    if (allIds.has(tag[1])) {
+                        continue;
+                    }
+                    let filter: ExtendedFilter={"ids": [tag[1]]}
+                    if (tag[2] && tag[2] != "") {
+                        filter.relay=tag[2]
+                    }
+                    filter.store_filter=stringify({authors: [event.pubkey]})
+                    r.push(filter)
+                }
+            }
+        }
+    }
+    return mergeSimilarFilters(stringifyUnique(r))
 }

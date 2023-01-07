@@ -26,7 +26,7 @@ specifiers:
   markdown-it-sub: ^1.0.0
   markdown-it-sup: ^1.0.0
   markdown-it-task-lists: ^2.1.1
-  nostr-relaypool: ^0.1.2
+  nostr-relaypool: ^0.2.0
   nostr-tools: ^1.1.0
   pnpm: ^7.19.0
   prettier: ^2.8.0
@@ -59,7 +59,7 @@ dependencies:
   markdown-it-sub: 1.0.0
   markdown-it-sup: 1.0.0
   markdown-it-task-lists: 2.1.1
-  nostr-relaypool: 0.1.2
+  nostr-relaypool: 0.2.0
   nostr-tools: 1.1.0
   pnpm: 7.19.0
   pretty-format: 29.3.1
@@ -3009,8 +3009,8 @@ packages:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
     engines: {node: '>=0.10.0'}
 
-  /nostr-relaypool/0.1.2:
-    resolution: {integrity: sha512-5louaLSrFhLhNfcV/8TrrfGjbxlaJF4M9+ojiTUk/Olsgc20PJgMA/ED4ItsijBnRIw0GBeTvo/h6DHlb8q8sw==}
+  /nostr-relaypool/0.2.0:
+    resolution: {integrity: sha512-eVB4/N7KZLL1L3ETW2tyf1G6DJtJGQsvdF1I4iHYTzwPRmBh+0IkJIDNBlAwlT6ULth8+oETclROxpkRdoaawQ==}
     dependencies:
       nostr-tools: 1.1.0
     dev: false

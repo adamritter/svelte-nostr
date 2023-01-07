@@ -3,15 +3,14 @@ const putAtEnd=true;  // Wait for EOSE to put new events in the store
 import type {Event, Filter} from 'nostr-tools'
 import type { QueryInfo } from './db-ievent';
 import { getEventsByFilters, putEvents } from './db';
-import { getFiltersToRequest, type Options, type ExtendedFilter, simplifiedFilter } from './get-filters-to-request';
+import { getFiltersToRequest, type Options, type ExtendedFilter, dbSimplifiedFilter } from './get-filters-to-request';
 import { RelayPool, RelayPoolSubscription } from 'nostr-relaypool'
-import { stringify } from "safe-stable-stringify";
 
 type Subscription={
     events: Event[],
     storedEvents: Event[],
     callback:any,
-    filters:Filter[],
+    filters:(Filter & {relay?: string})[],
     changed: boolean,
     options:Options,
     label:string,
@@ -106,7 +105,7 @@ export let relays=[
     "wss:://brb.io",
     "wss://nostr.v0l.io",
    ]
-const relayPool = new RelayPool([])
+const relayPool = new RelayPool()
 relayPool.onerror = (err) => {
     console.log("RelayPool error", err);
 }
@@ -137,7 +136,8 @@ function eoseReceived(subscription:Subscription, events: (Event& {id: string})[]
 
     console.timeLog(subscription.label, "EOSE with "+events.length+
         " events, from that "+newEvents.length+" not stored yet, total events seen: ", subscription.events.length,
-        ", total events stored: ", subscription.storedEvents.length, ", query_info: ", subscription.query_info);
+        ", total events stored: ", subscription.storedEvents.length, ", query_info: ", subscription.query_info,
+        ", recieved events: ", events, ", stored events: ", subscription.storedEvents);
     console.log("Writing query info", subscription.query_info)
     putEvents(subscription.filters, newEvents, undefined, subscription.query_info)
     subscription.storedEvents = subscription.storedEvents.concat(newEvents)
@@ -229,7 +229,7 @@ export function subscribeAndCacheResults(filters: ExtendedFilter[], callback: (e
     let db_queried_at=getTimeSec();
     let subscription:Subscription|undefined;
     
-    getEventsByFilters(filters.map(simplifiedFilter)).then(({events, query_infos})=>{
+    getEventsByFilters(filters.map(dbSimplifiedFilter)).then(({events, query_infos})=>{
         console.log("got events")
         let num_events=events.length;
         if(events.length) {

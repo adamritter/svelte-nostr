@@ -1,6 +1,2 @@
-- Connect public key API (probably need profile page where it's all easy)
-- log queries and look at fresh data
-- use relay api
-- use multiple relays possibly, see how other clients do it
-- separate post query from posts and replies (posts and replies is boring) ??? [seems hard with the current API, need extended API]
-- astral looks like a competitor :(
+- Write integration test (db + relay)
+- public / private key popup if necessary

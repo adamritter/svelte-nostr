@@ -1,8 +1,9 @@
 export function mapBy<Item,Key>(arr: Array<Item>, by: (value: Item)=>Key): Map<Key,Item> {
-    return arr.reduce((acc: any, item: any) => {
-        acc[by(item)] = item;
-        return acc;
-    }, new Map());
+    let r=new Map();
+    for(let item of arr) {
+        r.set(by(item), item)
+    }
+    return r;
 }
         
 

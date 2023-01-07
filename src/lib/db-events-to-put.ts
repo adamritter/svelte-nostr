@@ -16,13 +16,15 @@ import {stringify} from "safe-stable-stringify"
  * @param {*} query_info 
  * @returns 
  */
- export function getEventsToPut(filters:Filter[], events: (Event & {id:string})[], batchSize:number=30, query_info:QueryInfo|null=null) : IEvent[] {
+ export function getEventsToPut(filters:(Filter&{relay?: string})[], events: (Event & {id:string})[],
+        batchSize:number=30, query_info:QueryInfo|null=null) : IEvent[] {
     let toPutArray:IEvent[]=[];
     for(let filter of filters) {
         filter={...filter}
         delete filter.limit
         delete filter.since;
         delete filter.until;
+        delete filter.relay;
         let toPut:Map<string,Event[]> = new Map();
         // Needed filter splitting for writing query_info for empty filter results as well.
         for(let f of splitFilter(filter)) {
