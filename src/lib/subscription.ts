@@ -4,7 +4,7 @@ import type {Event, Filter} from 'nostr-tools'
 import type { QueryInfo } from './db-ievent';
 import { getEventsByFilters, putEvents } from './db';
 import { getFiltersToRequest, type Options, type ExtendedFilter, dbSimplifiedFilter } from './get-filters-to-request';
-import { RelayPool, RelayPoolSubscription } from 'nostr-relaypool'
+import { RelayPool } from 'nostr-relaypool'
 
 type Subscription={
     events: Event[],
@@ -19,7 +19,7 @@ type Subscription={
     query_info: QueryInfo,
     eose?: boolean,
     autoClose?: boolean,
-    sub?: RelayPoolSubscription,
+    sub?: ()=>void,
 }
 
 let subscriptionId=0;
@@ -104,8 +104,11 @@ export let relays=[
     "wss://nostr-pub.wellorder.net",
     "wss:://brb.io",
     "wss://nostr.v0l.io",
+    "wss://sg.qemura.xyz",
+    "wss://relay.nostr.bg",
+    "wss://nostr.mom"
    ]
-const relayPool = new RelayPool()
+export const relayPool = new RelayPool([])
 relayPool.onerror = (err) => {
     console.log("RelayPool error", err);
 }
@@ -123,8 +126,10 @@ function containsId(events:Event[], id:string) {
 }
 
 let unsubscribe=(subscription:Subscription) => {
-    subscription.sub?.unsub();
-    subscription.sub=undefined;
+    if (subscription.sub) {
+        subscription.sub()
+        subscription.sub=undefined
+    }
 }
 
 function eoseReceived(subscription:Subscription, events: (Event& {id: string})[] ) {
@@ -189,13 +194,12 @@ relayPool.ondisconnect((msg: string) => {
 
 function subscribe(subscription:Subscription) {
     console.log("relay.sub", subscription.subText,  ...subscription.filters)
-    let sub=relayPool.sub(subscription.filters, relays)
-    subscription.sub=sub
+    let sub=relayPool.subscribe(subscription.filters, relays,
 
-    sub.onevent((event: Event & {id: string}, afterEose: boolean) => {
+    (event: Event & {id: string}, afterEose: boolean) => {
         eventReceived(subscription, event, afterEose)
-    })
-    sub.oneose((events, url) => {
+    }, undefined,
+    (events, url) => {
         console.log("eose received at", url)
         if(events) {
             eoseReceived(subscription, events)
@@ -203,6 +207,7 @@ function subscribe(subscription:Subscription) {
             console.warn("eose received without events (server sent eose twice")
         }
     })
+    subscription.sub=sub
 }
 
 const getTimeSec=()=>Math.floor(Date.now()/1000);
@@ -268,9 +273,11 @@ export function subscribeAndCacheResults(filters: ExtendedFilter[], callback: (e
 }
 
 export function subdebug(filters: Filter[], relays: string[]) {
-    let sub = relayPool.sub(filters, relays)
     let time=Date.now()
-    sub.oneose((events, url)=>{
-        console.log("subdebug", url, Date.now()-time, "ms",  filters, events)
-    })
+    let sub = relayPool.subscribe(filters, relays,
+        (event: Event & {id: string}, afterEose: boolean) => {},
+        undefined,
+        (events, url)=>{
+            console.log("subdebug", url, Date.now()-time, "ms",  filters, events)
+        })
 }

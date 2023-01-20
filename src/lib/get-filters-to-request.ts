@@ -89,8 +89,10 @@ export function getFiltersToRequest(label: string, filters: ExtendedFilter[], op
             console.timeLog(label, 'no need to send subscription because filter is empty');
             continue;
         }
-        if(filter.ids || (filter.authors && filter.kinds && filter.kinds.length==1 &&
-                                (filter.kinds[0] == 0 || filter.kinds[0] == 3))) {
+        // Need to refresh sometimes own and followed profiles at least
+        // (filter.authors && filter.kinds && filter.kinds.length==1 &&
+        // (filter.kinds[0] == 0 || filter.kinds[0] == 3)
+        if(filter.ids) {
             onlyOne=true;
         }
         if(onlyOne) {

@@ -1,6 +1,6 @@
-import { matchFilter, type Event, type Filter } from "nostr-tools";
-import type { IEvent, QueryInfo } from "./db-ievent";
-import {stringify} from "safe-stable-stringify"
+import {matchFilter, type Event, type Filter} from "nostr-tools";
+import type {IEvent, QueryInfo} from "./db-ievent";
+import {stringify} from "safe-stable-stringify";
 
 /**
  * After getting back events from the server, we need to split them up
@@ -16,123 +16,147 @@ import {stringify} from "safe-stable-stringify"
  * @param {*} query_info 
  * @returns 
  */
- export function getEventsToPut(filters:(Filter&{relay?: string})[], events: (Event & {id:string})[],
-        batchSize:number=30, query_info:QueryInfo|null=null) : IEvent[] {
-    let toPutArray:IEvent[]=[];
-    for(let filter of filters) {
-        filter={...filter}
-        delete filter.limit
-        delete filter.since;
-        delete filter.until;
-        delete filter.relay;
-        let toPut:Map<string,Event[]> = new Map();
-        // Needed filter splitting for writing query_info for empty filter results as well.
-        for(let f of splitFilter(filter)) {
-            toPut.set(stringify(f), []);
-        }
-        for (let event of events) {
-            if(matchFilter(filter, event)) {
-                splitAndAddToPut(toPut, filter, event)
+export function getEventsToPut(
+  filters: (Filter & {relay?: string})[],
+  events: (Event & {id: string})[],
+  batchSize: number = 30,
+  query_info: QueryInfo | null = null
+): IEvent[] {
+  let toPutArray: IEvent[] = [];
+  for (let filter of filters) {
+    filter = {...filter};
+    delete filter.limit;
+    delete filter.since;
+    delete filter.until;
+    delete filter.relay;
+    let toPut: Map<string, Event[]> = new Map();
+    // Needed filter splitting for writing query_info for empty filter results as well.
+    for (let f of splitFilter(filter)) {
+      toPut.set(stringify(f), []);
+    }
+    for (let event of events) {
+      if (matchFilter(filter, event)) {
+        splitAndAddToPut(toPut, filter, event);
+      }
+    }
+    for (let [filter, events] of toPut) {
+      addBatchedQueries(toPutArray, filter, events, batchSize, query_info);
+    }
+  }
+  return toPutArray;
+}
+
+function addToPutBy(
+  toPut: Map<string, Array<Event>>,
+  filter: Filter,
+  key: "authors" | "ids" | "#p" | "#e" | null,
+  event: Event,
+  eventKey: string | null = null,
+  isTag = false
+) {
+  if (key) {
+    // @ts-ignore
+    if (filter[key] && filter[key].length > 1) {
+      // @ts-ignore
+      for (let value of filter[key]) {
+        if (isTag) {
+          for (let tag of event.tags) {
+            if (tag[0] == eventKey) {
+              if (tag[1] === value) {
+                addToPut(toPut, {...filter, [key]: [value]}, event);
+                break;
+              }
             }
+          }
+          // @ts-ignore
+        } else if (eventKey != null && event[eventKey] === value) {
+          addToPut(toPut, {...filter, [key]: [value]}, event);
+          break;
         }
-        for(let [filter, events] of toPut) {
-            addBatchedQueries(toPutArray, filter, events, batchSize, query_info);
-        }
+      }
+      return true;
     }
-    return toPutArray;
+    return false;
+  } else {
+    addToPut(toPut, filter, event);
+  }
 }
 
-function addToPutBy(toPut:Map<string, Array<Event>>, filter:Filter, key:"authors"|"ids"|"#p"|"#e"|null, event:Event,
-        eventKey:string|null=null, isTag=false) {
-    if(key) {
-        // @ts-ignore
-        if(filter[key] && filter[key].length > 1) { 
-            // @ts-ignore
-            for(let value of filter[key]) {
-                if(isTag) {
-                    for(let tag of event.tags) {
-                        if(tag[0] == eventKey) {
-                            if(tag[1] === value) {
-                                addToPut(toPut, {...filter, [key]: [value]}, event);
-                                break;
-                            }
-                        }
-                    }
-                // @ts-ignore
-                } else if(eventKey != null && event[eventKey] === value) {
-                    addToPut(toPut, {...filter, [key]: [value]}, event);
-                    break;
-                }
-            }
-            return true;
-        }
-        return false;
+function addToPut(
+  toPut: Map<string, Array<Event>>,
+  filter: Filter,
+  event: Event
+) {
+  let jsonFilter = stringify(filter);
+  let events = toPut.get(jsonFilter);
+  if (events) {
+    events.push(event);
+  } else {
+    toPut.set(jsonFilter, [event]);
+  }
+}
+
+function splitAndAddToPut(
+  toPut: Map<string, Array<Event>>,
+  filter: Filter,
+  event: Event
+) {
+  addToPutBy(toPut, filter, "authors", event, "pubkey", false) ||
+    addToPutBy(toPut, filter, "ids", event, "ids", false) ||
+    addToPutBy(toPut, filter, "#p", event, "p", true) ||
+    addToPutBy(toPut, filter, "#e", event, "e", true) ||
+    addToPutBy(toPut, filter, null, event);
+}
+
+function addBatchedQueries(
+  toPutArray: IEvent[],
+  filter: string,
+  events: Event[],
+  batchSize: number,
+  query_info: QueryInfo | null
+) {
+  events = events.sort((a, b) => a.created_at - b.created_at);
+  for (let i = 0; i < events.length; i += batchSize) {
+    if (batchSize > 1 || events.length == 1) {
+      toPutArray.push({
+        filter: filter,
+        events: events.slice(i, i + batchSize),
+      });
     } else {
-        addToPut(toPut, filter, event);
+      toPutArray.push({
+        filter: filter,
+        event: events[i],
+      });
     }
+  }
+  if (query_info) {
+    toPutArray.push({
+      filter: filter,
+      query_info,
+    });
+  }
 }
 
-function addToPut(toPut:Map<string, Array<Event>>, filter:Filter, event:Event) {
-    let jsonFilter=stringify(filter)
-    let events=toPut.get(jsonFilter);
-    if(events) {
-        events.push(event);
-    } else {
-        toPut.set(jsonFilter, [event]);
+function splitFilter(filter: Filter): Filter[] {
+  let filters = [];
+  if (filter.authors && filter.authors.length > 1) {
+    for (let author of filter.authors) {
+      filters.push({...filter, authors: [author]});
     }
-}
-
-function splitAndAddToPut(toPut:Map<string, Array<Event>>, filter:Filter, event:Event) {
-    addToPutBy(toPut, filter, "authors", event, "pubkey", false) ||
-     addToPutBy(toPut, filter, "ids", event, "ids", false) ||
-     addToPutBy(toPut, filter, "#p", event, "p", true) ||
-     addToPutBy(toPut, filter, "#e", event, "e", true) ||
-     addToPutBy(toPut, filter, null, event);
-}
-
-function addBatchedQueries(toPutArray: IEvent[], filter:string, events:Event[], batchSize:number, query_info:QueryInfo|null) {
-    events=events.sort((a,b) => a.created_at - b.created_at);
-    for(let i=0; i<events.length; i+=batchSize) {
-        if(batchSize > 1 || events.length==1) {
-            toPutArray.push({
-                filter: filter,
-                events: events.slice(i, i+batchSize)
-            })
-        } else {
-            toPutArray.push({
-                filter: filter,
-                event: events[i]
-            })
-        }
+  } else if (filter.ids && filter.ids.length > 1) {
+    for (let id of filter.ids) {
+      filters.push({...filter, ids: [id]});
     }
-    if(query_info) {
-        toPutArray.push({
-            filter: filter,
-            query_info
-        })
+  } else if (filter["#p"] && filter["#p"].length > 1) {
+    for (let p of filter["#p"]) {
+      filters.push({...filter, "#p": [p]});
     }
-}
-
-function splitFilter(filter:Filter) : Filter[] {
-    let filters=[]
-    if(filter.authors && filter.authors.length > 1) {
-        for(let author of filter.authors) {
-            filters.push({...filter, authors: [author]})
-        }
-    } else if(filter.ids && filter.ids.length > 1) {
-        for(let id of filter.ids) {
-            filters.push({...filter, ids: [id]})
-        }
-    } else if(filter["#p"] && filter["#p"].length > 1) {
-        for(let p of filter["#p"]) {
-            filters.push({...filter, "#p": [p]})
-        }
-    } else if(filter["#e"] && filter["#e"].length > 1) {
-        for(let e of filter["#e"]) {
-            filters.push({...filter, "#e": [e]})
-        }
-    } else {
-        filters.push(filter)
+  } else if (filter["#e"] && filter["#e"].length > 1) {
+    for (let e of filter["#e"]) {
+      filters.push({...filter, "#e": [e]});
     }
-    return filters;
+  } else {
+    filters.push(filter);
+  }
+  return filters;
 }
