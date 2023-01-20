@@ -1,13 +1,7 @@
 // Definition for stores that can be used in the client
-import {subscribeAndCacheResults} from "./subscription";
 import {unique, mapBy, groupBy} from "./collection-helpers";
 import {readable, derived, writable, type Readable} from "svelte/store";
 import {Kind, type Event, type Filter} from "nostr-tools";
-import {
-  mergeSimilarFilters,
-  type ExtendedFilter,
-  type Options,
-} from "./get-filters-to-request";
 import stringify from "safe-stable-stringify";
 
 export function subscribeAndCacheResultsStore(
